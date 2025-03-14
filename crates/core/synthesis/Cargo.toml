@@ -1,0 +1,54 @@
+[package]
+name = "lmt-synthesis"
+
+edition.workspace = true
+version.workspace = true
+
+[features]
+default = ["color", "serde"]
+
+color = ["lmt-parser/color", "lmt-report/color"]
+serde = [
+  "dep:serde",
+  "lmt-number/serde",
+  "lmt-parser/serde",
+  "lmt-report/serde",
+  "parking_lot/serde",
+  "dashmap/serde",
+  "hashbrown/serde",
+]
+
+[dependencies]
+lmt-number = { path = "../../util/number", version = "0.1.0-alpha.0", public = true }
+lmt-parser = { path = "../parser", version = "0.1.0-alpha.0", public = true }
+lmt-report = { path = "../../util/report", version = "0.1.0-alpha.0", public = true }
+
+dashmap = { version = "5.5.3", features = [
+  "rayon",
+  "arbitrary",
+], public = true }
+hashbrown = { version = "0.15.2", features = ["nightly", "rayon"] }
+mmap-sync = "2.0.1"
+parking_lot = { version = "0.12.1", features = [
+  "nightly",
+  "deadlock_detection",
+  # "send_guard",
+  "owning_ref",
+  "arc_lock",
+], public = true }
+
+ahash = "0.8.11"
+serde = { version = "1.0", features = [
+  "derive",
+], optional = true, public = true }
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[[bench]]
+harness = false
+name = "pi"

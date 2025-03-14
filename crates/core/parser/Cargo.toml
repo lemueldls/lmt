@@ -1,0 +1,27 @@
+[package]
+name = "lmt-parser"
+
+edition.workspace = true
+version.workspace = true
+
+[features]
+default = ["color", "serde"]
+
+color = ["lmt-report/color"]
+serde = ["dep:serde", "lmt-number/serde", "lmt-report/serde", "chumsky/serde"]
+
+[dependencies]
+lmt-number = { path = "../../util/number", version = "0.1.0-alpha.0", public = true }
+lmt-report = { path = "../../util/report", version = "0.1.0-alpha.0", public = true }
+
+chumsky = { version = "1.0.0-alpha.8", features = [
+  # "label",
+  # "pratt",
+  # "extension",
+  # "lexical-numbers",
+  # "memoization",
+  "nightly",
+], public = true }
+serde = { version = "1.0", features = [
+  "derive",
+], optional = true, public = true }

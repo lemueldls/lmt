@@ -1,0 +1,2 @@
+type ModuleId = integer
+type ModuleStore = Map<ModuleId, Module>

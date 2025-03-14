@@ -1,0 +1,41 @@
+[workspace]
+members = ["crates/bin/*", "crates/util/*", "crates/core/*"]
+package.edition = "2024"
+package.version = "0.1.0-alpha.0"
+resolver = "2"
+
+[workspace.lints]
+clippy.correctness = "deny"
+clippy.suspicious = "deny"
+clippy.unsafe_code = "deny"
+
+clippy.all = "warn"
+clippy.cargo = "warn"
+clippy.complexity = "warn"
+clippy.nursery = "warn"
+clippy.pedantic = "warn"
+clippy.perf = "warn"
+clippy.style = "warn"
+
+# rust.non_snake_case = "allow"
+
+# clippy.restriction = "warn"
+
+# clippy.missing_inline_in_public_items = "warn"
+
+# clippy.module_name_repetitions = "allow"
+clippy.option_if_let_else = "allow"
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[profile.release.package."*"]
+codegen-units = 1
+
+[profile.bench]
+codegen-units = 1
+lto = true
+
+[profile.bench.package."*"]
+codegen-units = 1
