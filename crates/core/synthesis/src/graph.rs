@@ -1,11 +1,7 @@
 use lmt_parser::Spanned;
 
-use crate::ModuleId;
-
 pub trait Graph: Default {
-    fn load_path(&mut self, path: &str, module_id: ModuleId);
-
-    fn resolve_path(&self, path: &str) -> ModuleId;
+    fn resolve_path(&mut self, path: &str) -> Option<String>;
 
     // fn parse(src: &str) {
     //     let (tokens, errs) = lmt_parser::lexer().parse(src).into_output_errors();

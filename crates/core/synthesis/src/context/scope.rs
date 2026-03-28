@@ -1,14 +1,14 @@
 use std::{self, fmt, marker::PhantomData};
 
 use hashbrown::{
-    hash_map::{Entry, OccupiedError},
     HashMap,
+    hash_map::{Entry, OccupiedError},
 };
 use lmt_parser::Spanned;
-use lmt_report::{miette::SourceSpan, SynthesisReport};
+use lmt_report::{SynthesisReport, miette::SourceSpan};
 use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 
-use crate::{define_index_type, util::SlotLockMap, TypeId};
+use crate::{TypeId, define_index_type, util::SlotLockMap};
 
 #[derive(Debug, Default)]
 pub struct Scope {

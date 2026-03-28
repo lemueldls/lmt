@@ -308,13 +308,11 @@ impl ModuleSynthesis {
 
         context.register_and_define_type_at_span(
             SynType::new(Proof::EqualTo(Spanned::new(
-                SynTypeKind::Function(function.clone()),
+                SynTypeKind::Function(function),
                 span,
             ))),
             self.span_with_id(span),
         );
-
-        self.eval_block(function.body, false, context);
     }
 
     fn eval_expression(&mut self, expr: Spanned<Expr>, context: &Context) -> TypeId {
@@ -340,8 +338,8 @@ impl ModuleSynthesis {
                         .push(span);
                     self.ident_definitions.insert(span, origin_span);
 
-                    // context.get_type_id_from_span(self.span_with_id(span))
-                    context.get_type_id_from_span(self.span_with_id(origin_span))
+                    // context.get_type_from_span(self.span_with_id(span))
+                    context.get_type_from_span(self.span_with_id(origin_span))
                 } else {
                     return self.throw_unknown_at(span, context);
                 }
@@ -639,7 +637,7 @@ impl ModuleSynthesis {
         syn_type
     }
 
-    pub fn span_with_id(&self, span: SimpleSpan) -> SpanWithModuleId {
+    fn span_with_id(&self, span: SimpleSpan) -> SpanWithModuleId {
         SpanWithModuleId::new(self.module_id, span.into_range())
     }
 }

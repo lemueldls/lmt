@@ -9,13 +9,13 @@ default = ["color", "serde"]
 
 color = ["lmt-parser/color", "lmt-report/color"]
 serde = [
+  "dashmap/serde",
   "dep:serde",
+  "hashbrown/serde",
   "lmt-number/serde",
   "lmt-parser/serde",
   "lmt-report/serde",
   "parking_lot/serde",
-  "dashmap/serde",
-  "hashbrown/serde",
 ]
 
 [dependencies]
@@ -24,17 +24,17 @@ lmt-parser = { path = "../parser", version = "0.1.0-alpha.0", public = true }
 lmt-report = { path = "../../util/report", version = "0.1.0-alpha.0", public = true }
 
 dashmap = { version = "5.5.3", features = [
-  "rayon",
   "arbitrary",
+  "rayon",
 ], public = true }
-hashbrown = { version = "0.15.2", features = ["nightly", "rayon"] }
+hashbrown = { version = "0.14.3", features = ["nightly", "rayon"] }
 mmap-sync = "2.0.1"
 parking_lot = { version = "0.12.1", features = [
-  "nightly",
   "deadlock_detection",
+  "nightly",
   # "send_guard",
-  "owning_ref",
   "arc_lock",
+  "owning_ref",
 ], public = true }
 
 ahash = "0.8.11"

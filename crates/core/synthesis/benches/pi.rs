@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use lmt_number::fraction::{BigDecimal, One, Zero};
 
 fn pow_bb(base: BigDecimal, exponent: usize) -> BigDecimal {

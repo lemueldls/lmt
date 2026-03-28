@@ -26,12 +26,8 @@ impl Context {
         self.type_map.get(type_id)
     }
 
-    pub fn get_type_id_from_span(&self, span: SpanWithModuleId) -> TypeId {
+    pub fn get_type_from_span(&self, span: SpanWithModuleId) -> TypeId {
         *self.spanned_proofs.read().get(&span).unwrap()
-    }
-
-    pub fn get_type_from_span(&self, span: SpanWithModuleId) -> MappedRwLockReadGuard<SynType> {
-        self.type_map.get(self.get_type_id_from_span(span))
     }
 
     pub fn register_and_define_type_at_span(&self, r#type: SynType, span: SpanWithModuleId) {
