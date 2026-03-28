@@ -1,7 +1,7 @@
-use std::{collections::HashMap, hash::BuildHasher, ops::Deref};
+use std::{collections::HashMap, hash::BuildHasher};
 
 use async_lsp::lsp_types::SemanticTokenType;
-use lmt_parser::{Block, Expr, Function, Spanned, Stmt};
+use lmt_parser::{Expr, Function, Module, Spanned, Stmt};
 
 #[derive(Debug)]
 pub struct ImCompleteSemanticToken {
@@ -25,33 +25,18 @@ pub const LEGEND_TYPE: &[SemanticTokenType] = &[
 /// Should never panic.
 #[inline]
 #[must_use]
-pub fn semantic_token_from_ast(block: &Spanned<Block>) -> Vec<ImCompleteSemanticToken> {
+pub fn semantic_token_from_ast(module: &Module) -> Vec<ImCompleteSemanticToken> {
     let mut semantic_tokens = vec![];
 
-    match &**block {
-        Block::Multiline {
-            return_typed_ident,
-            stmts,
-        } => {
-            for stmt in stmts {
-                match &**stmt {
-                    Stmt::Function(function) => {
-                        semantic_token_from_function(function, &mut semantic_tokens);
-                    }
-                    _ => {}
-                }
-            }
-        }
-        Block::Singleline { return_expr } => {
-            semantic_token_from_expr(&*return_expr, &mut semantic_tokens);
-        }
+    for function in module.functions.values() {
+        semantic_token_from_function(function, &mut semantic_tokens);
     }
 
     semantic_tokens
 }
 
 fn semantic_token_from_function(
-    function: &Function,
+    function: &Function<'_>,
     semantic_tokens: &mut Vec<ImCompleteSemanticToken>,
 ) {
     function.signature.args.iter().for_each(|arg| {
@@ -120,7 +105,7 @@ pub fn semantic_token_from_expr(
     expr: &Spanned<Expr>,
     semantic_tokens: &mut Vec<ImCompleteSemanticToken>,
 ) {
-    match expr.deref() {
+    match &**expr {
         Expr::Error => {}
         Expr::List(_) => {}
         Expr::Literal(_) => {}
@@ -146,26 +131,13 @@ pub fn semantic_token_from_expr(
             for p in &**params {
                 semantic_token_from_expr(p, semantic_tokens);
             }
-        }
-        Expr::Block(block) => {
-            match block {
-                Block::Multiline { stmts, .. } => {
-                    for stmt in stmts {
-                        semantic_token_from_stmt(stmt, semantic_tokens);
-                    }
-                }
-                Block::Singleline { return_expr, .. } => {
-                    semantic_token_from_expr(return_expr, semantic_tokens);
-                }
-            }
-        }
-        Expr::Match(match_expr) => {
-            semantic_token_from_expr(&match_expr.expr, semantic_tokens);
-
-            for case in &match_expr.cases {
-                semantic_token_from_expr(&case.condition, semantic_tokens);
-                semantic_token_from_expr(&case.then, semantic_tokens);
-            }
-        }
+        } // Expr::If(test, consequent, alternative) => {
+          //     semantic_token_from_expr(test, semantic_tokens);
+          //     semantic_token_from_expr(consequent, semantic_tokens);
+          //     semantic_token_from_expr(alternative, semantic_tokens);
+          // }
+          // Expr::Print(expr) => {
+          //     semantic_token_from_expr(expr, semantic_tokens);
+          // }
     }
 }

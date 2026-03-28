@@ -20,7 +20,7 @@ use async_lsp::{
     router::Router,
 };
 use futures::{future::BoxFuture, lock::Mutex};
-use lmt_parser::{Input, Parser, SimpleSpan, Span, error::RichReason};
+use lmt_parser::{Input, Parser, SimpleSpan, error::RichReason};
 use lmt_synthesis::{Graph, ModuleSynthesis, StaticSynthesis};
 use ropey::Rope;
 
@@ -31,18 +31,18 @@ pub struct LspGraph {
     // pub document_map: HashMap<Url, Rope>,
 }
 
-// impl Graph for LspGraph {
-//     fn resolve_path(&mut self, path: &str) -> Option<String> {
-//         todo!()
-//     }
-// }
+impl Graph for LspGraph {
+    fn resolve_path(&mut self, path: &str) -> Option<String> {
+        todo!()
+    }
+}
 
 pub static SYNTHESIS: LazyLock<StaticSynthesis> = LazyLock::new(StaticSynthesis::default);
 
 #[derive(Debug)]
 pub struct Backend {
     client: ClientSocket,
-    // synthesis_map: HashMap<Url, ModuleSynthesis>,
+    synthesis_map: HashMap<Url, ModuleSynthesis>,
     document_map: HashMap<Url, Rope>,
     semantic_token_map: HashMap<Url, Vec<ImCompleteSemanticToken>>,
 }
@@ -121,22 +121,21 @@ impl LanguageServer for Backend {
         &mut self,
         params: HoverParams,
     ) -> BoxFuture<'static, Result<Option<Hover>, Self::Error>> {
-        let uri = &params.text_document_position_params.text_document.uri;
-        let synthesis = SYNTHESIS.get_module_synthesis_by_path(uri.as_str());
+        let synthesis = self
+            .synthesis_map
+            .get(&params.text_document_position_params.text_document.uri);
+
+        let uri = params.text_document_position_params.text_document.uri;
+        let rope = self.document_map.get(&uri).unwrap();
+
+        let position = params.text_document_position_params.position;
+        let offset = rope.line_to_char(position.line as usize) + position.character as usize;
 
         let hover = synthesis.map(|synthesis| {
-            let rope = self.document_map.get(uri).unwrap();
-
-            let position = params.text_document_position_params.position;
-            let offset = rope.line_to_char(position.line as usize) + position.character as usize;
-
-            let context = &SYNTHESIS.context;
-
-            let spanned_proofs = context.spanned_proofs.read();
-            dbg!(&spanned_proofs);
-            let types = spanned_proofs
+            let types = synthesis
+                .ident_types
                 .iter()
-                .find(|(span, _)| (span.start()..span.end()).contains(&offset));
+                .find(|(span, _)| span.into_range().contains(&offset));
 
             types.map(|(span, r#type)| {
                 let start = offset_to_position(span.start, rope).unwrap();
@@ -144,7 +143,7 @@ impl LanguageServer for Backend {
 
                 let mut proof_block = String::new();
 
-                let proof = &context.get_type_from_id(r#type.clone()).proof;
+                let proof = &r#type.borrow().proof;
                 let equal_to = &proof.equal_to().unwrap();
 
                 if let Some(upcast) = equal_to.upcast() {
@@ -155,7 +154,7 @@ impl LanguageServer for Backend {
 
                 let mut implications_block = String::new();
 
-                for implication in &context.get_type_from_id(r#type.clone()).implications {
+                for implication in &r#type.borrow().implications {
                     let span = implication.for_type.span();
 
                     implications_block.push_str(&format!(
@@ -194,13 +193,9 @@ impl LanguageServer for Backend {
         &mut self,
         params: GotoDefinitionParams,
     ) -> BoxFuture<'static, Result<Option<GotoDefinitionResponse>, ResponseError>> {
-        let synthesis = SYNTHESIS.get_module_synthesis_by_path(
-            params
-                .text_document_position_params
-                .text_document
-                .uri
-                .as_str(),
-        );
+        let synthesis = self
+            .synthesis_map
+            .get(&params.text_document_position_params.text_document.uri);
 
         let uri = params.text_document_position_params.text_document.uri;
         let rope = self.document_map.get(&uri).unwrap();
@@ -235,8 +230,9 @@ impl LanguageServer for Backend {
         &mut self,
         params: ReferenceParams,
     ) -> BoxFuture<'static, Result<Option<Vec<Location>>, ResponseError>> {
-        let synthesis = SYNTHESIS
-            .get_module_synthesis_by_path(params.text_document_position.text_document.uri.as_str());
+        let synthesis = self
+            .synthesis_map
+            .get(&params.text_document_position.text_document.uri);
 
         let uri = params.text_document_position.text_document.uri;
         let rope = self.document_map.get(&uri).unwrap();
@@ -310,68 +306,63 @@ impl LanguageServer for Backend {
     ) -> BoxFuture<'static, Result<Option<Vec<InlayHint>>, ResponseError>> {
         let uri = &params.text_document.uri;
 
-        let inlay_hints = SYNTHESIS
-            .get_module_synthesis_by_path(uri.as_str())
-            .map(|synthesis| {
-                synthesis
-                    .ident_references
-                    .keys()
-                    .map(|span| {
-                        let (start, end) = self.span_to_pos(span, uri);
+        let inlay_hints = self.synthesis_map.get(uri).map(|synthesis| {
+            synthesis
+                .ident_references
+                .keys()
+                .map(|span| {
+                    let (start, end) = self.span_to_pos(span, uri);
 
-                        let r#type = &SYNTHESIS
-                            .context
-                            .get_type_from_span(synthesis.span_with_id(*span))
-                            .proof;
-                        let equal_to = r#type.equal_to().unwrap();
+                    let r#type = synthesis.ident_types.get(span).unwrap();
+                    let proof = &r#type.borrow().proof;
+                    let equal_to = proof.equal_to().unwrap();
 
-                        InlayHint {
-                            text_edits: None,
+                    InlayHint {
+                        text_edits: None,
+                        tooltip: None,
+                        kind: Some(InlayHintKind::TYPE),
+                        padding_left: None,
+                        padding_right: None,
+                        data: None,
+                        position: end,
+                        label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
+                            value: format!(": {}", equal_to.upcast().as_ref().unwrap_or(equal_to)),
                             tooltip: None,
-                            kind: Some(InlayHintKind::TYPE),
-                            padding_left: None,
-                            padding_right: None,
-                            data: None,
-                            position: end,
-                            label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
-                                value: format!(
-                                    ": {}",
-                                    equal_to.upcast().as_ref().unwrap_or(equal_to)
-                                ),
-                                tooltip: None,
-                                location: Some(Location {
-                                    uri: params.text_document.uri.clone(),
-                                    range: Range { start, end },
-                                }),
-                                command: None,
-                            }]),
-                        }
-                    })
-                    // .chain(synthesis.functions.iter().map(|(span, function)| {
-                    //     let (start, end) = self.span_to_pos(span, uri);
-                    //     let proof = &function.return_type.borrow().proof;
-                    //     let equal_to = proof.equal_to().unwrap();
-                    //     InlayHint {
-                    //         text_edits: None,
-                    //         tooltip: None,
-                    //         kind: Some(InlayHintKind::TYPE),
-                    //         padding_left: None,
-                    //         padding_right: None,
-                    //         data: None,
-                    //         position: end,
-                    //         label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
-                    //             value: format!(": {}", equal_to.upcast().as_ref().unwrap_or(equal_to)),
-                    //             tooltip: None,
-                    //             location: Some(Location {
-                    //                 uri: params.text_document.uri.clone(),
-                    //                 range: Range { start, end },
-                    //             }),
-                    //             command: None,
-                    //         }]),
-                    //     }
-                    // }))
-                    .collect()
-            });
+                            location: Some(Location {
+                                uri: params.text_document.uri.clone(),
+                                range: Range { start, end },
+                            }),
+                            command: None,
+                        }]),
+                    }
+                })
+                .chain(synthesis.functions.iter().map(|(span, function)| {
+                    let (start, end) = self.span_to_pos(span, uri);
+
+                    let proof = &function.return_type.borrow().proof;
+                    let equal_to = proof.equal_to().unwrap();
+
+                    InlayHint {
+                        text_edits: None,
+                        tooltip: None,
+                        kind: Some(InlayHintKind::TYPE),
+                        padding_left: None,
+                        padding_right: None,
+                        data: None,
+                        position: end,
+                        label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
+                            value: format!(": {}", equal_to.upcast().as_ref().unwrap_or(equal_to)),
+                            tooltip: None,
+                            location: Some(Location {
+                                uri: params.text_document.uri.clone(),
+                                range: Range { start, end },
+                            }),
+                            command: None,
+                        }]),
+                    }
+                }))
+                .collect()
+        });
 
         Box::pin(async move { Ok(inlay_hints) })
     }
@@ -489,19 +480,21 @@ impl Backend {
         let rope = ropey::Rope::from_str(text);
         self.document_map.insert(uri.clone(), rope.clone());
 
-        // let (module_id, parse_errors) = SYNTHESIS.load_module("examples/test.lmt", text);
-        // let synthesis = SYNTHESIS.get_module_synthesis_by_id(module_id);
+        let (module_id, parse_errors) = SYNTHESIS.load_module("examples/test.lmt", text);
+        let synthesis = SYNTHESIS.get_module_synthesis(module_id);
 
-        let (ast, errors) = lmt_parser::parse_tokens(text);
+        // let semantic_tokens = ast
+        //         .as_ref()
+        //         .map(crate::semantic_token::semantic_token_from_ast);
 
-        let semantic_tokens = ast
-            .as_ref()
-            .map(crate::semantic_token::semantic_token_from_ast);
-
-        let path = uri.as_str();
-
-        let (module_id, parse_errors) = SYNTHESIS.load_block(path, ast, errors);
-        let synthesis = SYNTHESIS.get_module_synthesis_by_id(module_id);
+        // let parse_errors = tokenize_errors
+        //     .into_iter()
+        //     .map(|err| err.map_token(|ch| ch.to_string()))
+        //     .chain(
+        //         synthesis_errors
+        //             .into_iter()
+        //             .map(|err| err.map_token(|token| token.to_string())),
+        //     );
 
         // let parse_diagnostics = parse_errors.into_iter().filter_map(|item| {
         //     let (message, span) = match item.reason() {
@@ -612,7 +605,7 @@ impl Backend {
     pub fn new_router(client: ClientSocket) -> Router<Self> {
         let state = Self {
             client,
-            // synthesis_map: HashMap::new(),
+            synthesis_map: HashMap::new(),
             document_map: HashMap::new(),
             semantic_token_map: HashMap::new(),
         };

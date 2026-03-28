@@ -40,7 +40,7 @@ export async function activate(context: ExtensionContext) {
     async (uri) => {
       // The code you place here will be executed every time your command is executed
       // Display a message box to the user
-      // const url = Uri.parse("/home/victor/Documents/test-dir/lmt/another.lmt");
+      const url = Uri.parse("/home/victor/Documents/test-dir/lmt/another.lmt");
       let document = await workspace.openTextDocument(uri);
       await window.showTextDocument(document);
 
@@ -55,7 +55,7 @@ export async function activate(context: ExtensionContext) {
   context.subscriptions.push(disposable);
 
   const traceOutputChannel = window.createOutputChannel(
-    "lmt Language Server trace"
+    "Nrs Language Server trace"
   );
   const command = process.env.SERVER_PATH || "lmt-lsp";
   const run: Executable = {

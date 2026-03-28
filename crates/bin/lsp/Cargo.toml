@@ -1,5 +1,3 @@
-# cargo-features = ["edition2024"]
-
 [package]
 name = "lmt-lsp"
 
@@ -10,10 +8,10 @@ version.workspace = true
 workspace = true
 
 [features]
-default = ["tokio", "rustix"]
+default = ["rustix", "tokio"]
 
 rustix = ["async-lsp/client-monitor", "async-lsp/stdio"]
-tokio = ["dep:tokio", "dep:tokio-util", "async-lsp/tokio"]
+tokio = ["async-lsp/tokio", "dep:tokio", "dep:tokio-util"]
 
 [dependencies]
 lmt-parser = { path = "../../core/parser", version = "0.1.0-alpha.0", public = true }
