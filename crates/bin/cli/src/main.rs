@@ -35,10 +35,6 @@ fn main() -> miette::Result<()> {
     let src = fs::read_to_string(path).into_diagnostic()?;
 
     let (module_id, errors) = synthesis.load_module(path, &src);
-    let module = synthesis.get_module_synthesis_by_id(module_id);
-
-    // dbg!(&synthesis);
-    // dbg!(&module);
 
     // let path = &PathBuf::from(path).canonicalize().unwrap();
     // // fs::File::open(path).unwrap().read
