@@ -57,10 +57,10 @@ impl StaticSynthesis {
         //     .resolve_path(PathBuf::from(path))
         //     .unwrap();
 
-        let (tokens, tokenize_errors): (
-            Option<Vec<(Token, SimpleSpan)>>,
-            Vec<Rich<char, SimpleSpan>>,
-        ) = lmt_parser::lexer().parse(src).into_output_errors();
+        let (tokens, tokenize_errors): (Option<Vec<Spanned<Token>>>, Vec<Rich<char, SimpleSpan>>) =
+            lmt_parser::lexer::token_parser()
+                .parse(src)
+                .into_output_errors();
 
         let mut errors: Vec<SynthesisReport> = tokenize_errors
             .into_iter()
@@ -78,7 +78,13 @@ impl StaticSynthesis {
                     let len = src.chars().count();
 
                     lmt_parser::module_parser()
-                        .parse(tokens.spanned((len..len).into()))
+                        .parse(
+                            tokens
+                                .as_slice()
+                                .map((src.len()..src.len()).into(), |spanned_token| {
+                                    (&spanned_token.token, &spanned_token.span)
+                                }),
+                        )
                         .into_output_errors()
                 }
                 None => (None, Vec::new()),

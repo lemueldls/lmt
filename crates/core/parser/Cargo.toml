@@ -8,19 +8,18 @@ version.workspace = true
 default = ["color", "serde"]
 
 color = ["lmt-report/color"]
-serde = ["dep:serde", "lmt-number/serde", "lmt-report/serde", "chumsky/serde"]
+serde = ["chumsky/serde", "dep:serde", "lmt-number/serde", "lmt-report/serde"]
 
 [dependencies]
 lmt-number = { path = "../../util/number", version = "0.1.0-alpha.0", public = true }
 lmt-report = { path = "../../util/report", version = "0.1.0-alpha.0", public = true }
 
-chumsky = { version = "1.0.0-alpha.8", features = [
+chumsky = { version = "0.12.0", features = [
+  "extension",
   # "label",
-  # "pratt",
-  # "extension",
-  # "lexical-numbers",
-  # "memoization",
+  "lexical-numbers",
   "nightly",
+  "pratt",
 ], public = true }
 serde = { version = "1.0", features = [
   "derive",

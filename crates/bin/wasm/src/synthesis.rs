@@ -26,7 +26,9 @@ pub fn standalone_synthesis(src: &str) -> SynthesisWrapper {
     // let filename = env::args().nth(1).expect("no file given");
     let filename = "examples/test.lmt";
 
-    let (tokens, errs) = lmt_parser::lexer().parse(src).into_output_errors();
+    let (tokens, errs) = lmt_parser::lexer::token_parser()
+        .parse(src)
+        .into_output_errors();
 
     let (synthesis, tokenize_errors) = if let Some(tokens) = tokens.as_ref() {
         let len = src.chars().count();
