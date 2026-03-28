@@ -26,7 +26,7 @@ impl Context {
         self.type_map.get(type_id)
     }
 
-    pub fn get_type_from_span(&self, span: SpanWithModuleId) -> TypeId {
+    pub fn get_type_id_from_span(&self, span: SpanWithModuleId) -> TypeId {
         *self.spanned_proofs.read().get(&span).unwrap()
     }
 

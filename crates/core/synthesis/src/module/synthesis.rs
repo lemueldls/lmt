@@ -159,6 +159,10 @@ impl ModuleSynthesis {
         }
     }
 
+    pub fn id(&self) -> ModuleId {
+        self.module_id
+    }
+
     pub fn eval_block(
         &mut self,
         spanned_block: Spanned<Block>,
@@ -338,8 +342,8 @@ impl ModuleSynthesis {
                         .push(span);
                     self.ident_definitions.insert(span, origin_span);
 
-                    // context.get_type_from_span(self.span_with_id(span))
-                    context.get_type_from_span(self.span_with_id(origin_span))
+                    // context.get_type_id_from_span(self.span_with_id(span))
+                    context.get_type_id_from_span(self.span_with_id(origin_span))
                 } else {
                     return self.throw_unknown_at(span, context);
                 }

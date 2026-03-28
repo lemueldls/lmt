@@ -20,8 +20,8 @@ use async_lsp::{
     router::Router,
 };
 use futures::{future::BoxFuture, lock::Mutex};
-use lmt_parser::{Input, Parser, SimpleSpan, error::RichReason};
-use lmt_synthesis::{Graph, ModuleSynthesis, StaticSynthesis};
+use lmt_parser::{Input, Parser, SimpleSpan, Span, error::RichReason};
+use lmt_synthesis::{Graph, ModuleSynthesis, SpanWithModuleId, StaticSynthesis};
 use ropey::Rope;
 
 use crate::semantic_token::{ImCompleteSemanticToken, LEGEND_TYPE};
@@ -132,10 +132,20 @@ impl LanguageServer for Backend {
         let offset = rope.line_to_char(position.line as usize) + position.character as usize;
 
         let hover = synthesis.map(|synthesis| {
-            let types = synthesis
-                .ident_types
+            let context = &SYNTHESIS.context;
+            let types = context
+                .spanned_proofs
+                .read()
                 .iter()
-                .find(|(span, _)| span.into_range().contains(&offset));
+                .find_map(|(span, type_id)| {
+                    let in_module = span.context == synthesis.id();
+
+                    (in_module && span.into_range().contains(&offset)).then(|| {
+                        let r#type = context.get_type_from_id(*type_id);
+
+                        (*span, r#type)
+                    })
+                });
 
             types.map(|(span, r#type)| {
                 let start = offset_to_position(span.start, rope).unwrap();
@@ -143,7 +153,7 @@ impl LanguageServer for Backend {
 
                 let mut proof_block = String::new();
 
-                let proof = &r#type.borrow().proof;
+                let proof = &r#type.proof;
                 let equal_to = &proof.equal_to().unwrap();
 
                 if let Some(upcast) = equal_to.upcast() {
@@ -154,7 +164,7 @@ impl LanguageServer for Backend {
 
                 let mut implications_block = String::new();
 
-                for implication in &r#type.borrow().implications {
+                for implication in &r#type.implications {
                     let span = implication.for_type.span();
 
                     implications_block.push_str(&format!(
@@ -203,8 +213,8 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
         let offset = rope.line_to_char(position.line as usize) + position.character as usize;
 
-        let definition = synthesis.map(|synthesis| {
-            let (_, def_span) = synthesis
+        let definition = synthesis.map(|module| {
+            let (_, def_span) = module
                 .ident_definitions
                 .iter()
                 .find(|(reference, _)| reference.into_range().contains(&offset))
@@ -240,8 +250,8 @@ impl LanguageServer for Backend {
         let position = params.text_document_position.position;
         let offset = rope.line_to_char(position.line as usize) + position.character as usize;
 
-        let references = synthesis.map(|synthesis| {
-            let (_, references) = synthesis
+        let references = synthesis.map(|module| {
+            let (_, references) = module
                 .ident_references
                 .iter()
                 .find(|(span, _)| span.into_range().contains(&offset))?;
@@ -306,15 +316,20 @@ impl LanguageServer for Backend {
     ) -> BoxFuture<'static, Result<Option<Vec<InlayHint>>, ResponseError>> {
         let uri = &params.text_document.uri;
 
-        let inlay_hints = self.synthesis_map.get(uri).map(|synthesis| {
-            synthesis
+        let inlay_hints = self.synthesis_map.get(uri).map(|module| {
+            module
                 .ident_references
                 .keys()
                 .map(|span| {
                     let (start, end) = self.span_to_pos(span, uri);
 
-                    let r#type = synthesis.ident_types.get(span).unwrap();
-                    let proof = &r#type.borrow().proof;
+                    let context = &SYNTHESIS.context;
+                    let type_id = context.get_type_id_from_span(SpanWithModuleId::new(
+                        module.id(),
+                        span.into_range(),
+                    ));
+                    let r#type = context.get_type_from_id(type_id);
+                    let proof = &r#type.proof;
                     let equal_to = proof.equal_to().unwrap();
 
                     InlayHint {
@@ -336,31 +351,29 @@ impl LanguageServer for Backend {
                         }]),
                     }
                 })
-                .chain(synthesis.functions.iter().map(|(span, function)| {
-                    let (start, end) = self.span_to_pos(span, uri);
-
-                    let proof = &function.return_type.borrow().proof;
-                    let equal_to = proof.equal_to().unwrap();
-
-                    InlayHint {
-                        text_edits: None,
-                        tooltip: None,
-                        kind: Some(InlayHintKind::TYPE),
-                        padding_left: None,
-                        padding_right: None,
-                        data: None,
-                        position: end,
-                        label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
-                            value: format!(": {}", equal_to.upcast().as_ref().unwrap_or(equal_to)),
-                            tooltip: None,
-                            location: Some(Location {
-                                uri: params.text_document.uri.clone(),
-                                range: Range { start, end },
-                            }),
-                            command: None,
-                        }]),
-                    }
-                }))
+                // .chain(module.functions.iter().map(|(span, function)| {
+                //     let (start, end) = self.span_to_pos(span, uri);
+                //     let proof = &function.return_type.borrow().proof;
+                //     let equal_to = proof.equal_to().unwrap();
+                //     InlayHint {
+                //         text_edits: None,
+                //         tooltip: None,
+                //         kind: Some(InlayHintKind::TYPE),
+                //         padding_left: None,
+                //         padding_right: None,
+                //         data: None,
+                //         position: end,
+                //         label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
+                //             value: format!(": {}", equal_to.upcast().as_ref().unwrap_or(equal_to)),
+                //             tooltip: None,
+                //             location: Some(Location {
+                //                 uri: params.text_document.uri.clone(),
+                //                 range: Range { start, end },
+                //             }),
+                //             command: None,
+                //         }]),
+                //     }
+                // }))
                 .collect()
         });
 
@@ -481,7 +494,7 @@ impl Backend {
         self.document_map.insert(uri.clone(), rope.clone());
 
         let (module_id, parse_errors) = SYNTHESIS.load_module("examples/test.lmt", text);
-        let synthesis = SYNTHESIS.get_module_synthesis(module_id);
+        let module = SYNTHESIS.module_synthesis_map.get(module_id);
 
         // let semantic_tokens = ast
         //         .as_ref()
