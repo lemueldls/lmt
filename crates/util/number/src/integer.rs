@@ -1,6 +1,6 @@
 use core::{cmp, fmt, ops};
 
-use fraction::{error, BigInt, Bounded, DynaInt, Num};
+use fraction::{BigInt, Bounded, DynaInt, Num, error};
 
 type I = DynaInt<isize, BigInt>;
 

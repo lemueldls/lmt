@@ -1,8 +1,9 @@
+
 [workspace]
-members = ["crates/bin/*", "crates/util/*", "crates/core/*"]
+members = ["crates/bin/*", "crates/core/*", "crates/util/*"]
 package.edition = "2024"
 package.version = "0.1.0-alpha.0"
-resolver = "2"
+resolver = "3"
 
 [workspace.lints]
 clippy.correctness = "deny"
@@ -12,12 +13,12 @@ clippy.unsafe_code = "deny"
 clippy.all = "warn"
 clippy.cargo = "warn"
 clippy.complexity = "warn"
-clippy.nursery = "warn"
+# clippy.nursery = "warn"
 clippy.pedantic = "warn"
 clippy.perf = "warn"
 clippy.style = "warn"
 
-# rust.non_snake_case = "allow"
+rust.non_snake_case = "allow"
 
 # clippy.restriction = "warn"
 

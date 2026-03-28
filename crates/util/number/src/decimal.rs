@@ -1,8 +1,8 @@
 use core::{cmp, fmt, ops, str};
 
 use fraction::{
-    error, BigDecimal, BigFraction, BigInt, BigUint, DynaDecimal, DynaFraction, GenericDecimal,
-    One, Zero,
+    BigDecimal, BigFraction, BigInt, BigUint, DynaDecimal, DynaFraction, GenericDecimal, One, Zero,
+    error,
 };
 
 type D = DynaDecimal<usize, u8>;
