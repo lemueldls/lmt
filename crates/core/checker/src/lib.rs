@@ -1,5 +1,13 @@
 use anyhow::Result;
 use cvc5_rs::{Kind, Solver, TermManager};
+mod expr_conv;
+mod refinement;
+mod solver;
+
+use std::path::Path;
+
+use anyhow::Context;
+use lmt_parser::{StructuralMapper, parser::Parser};
 
 pub fn check_simple_arithmetic() -> Result<()> {
     let tm = TermManager::new();
@@ -30,4 +38,100 @@ pub fn check_simple_arithmetic() -> Result<()> {
 
 pub fn check() -> Result<()> {
     check_simple_arithmetic()
+}
+
+pub fn check_path(path: &str) -> Result<()> {
+    let path = Path::new(path);
+    if path.is_file() {
+        return check_file(path);
+    }
+
+    if path.is_dir() {
+        for file in collect_supported_files(path)? {
+            check_file(&file)?;
+        }
+        return Ok(());
+    }
+
+    Err(anyhow::anyhow!("path does not exist: {}", path.display()))
+}
+
+pub fn check_contract_spec(spec: &str) -> Result<()> {
+    let mut parser = Parser::new(spec);
+    let contract = parser.parse_function_contract();
+    refinement::check_contract_consistency(&contract)
+}
+
+fn check_file(path: &Path) -> Result<()> {
+    let mapper = StructuralMapper::new();
+    let mappings = mapper
+        .map_file(path)
+        .with_context(|| format!("failed to map file {}", path.display()))?;
+
+    for mapping in mappings {
+        refinement::check_contract_consistency(&mapping.contract).with_context(|| {
+            format!(
+                "contract `{}` failed in {}",
+                mapping.contract.name,
+                path.display()
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
+fn collect_supported_files(root: &Path) -> Result<Vec<std::path::PathBuf>> {
+    let mut out = Vec::new();
+    collect_supported_files_impl(root, &mut out)?;
+    Ok(out)
+}
+
+fn collect_supported_files_impl(dir: &Path, out: &mut Vec<std::path::PathBuf>) -> Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_supported_files_impl(&path, out)?;
+        } else if is_supported_source_file(&path) {
+            out.push(path);
+        }
+    }
+
+    Ok(())
+}
+
+fn is_supported_source_file(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|e| e.to_str()),
+        Some("rs" | "py" | "js" | "ts")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use lmt_parser::ast::{BinOp, Expr, Lit};
+
+    use super::*;
+
+    #[test]
+    fn test_expr_conv_term_check() {
+        let expr = Expr::Binary {
+            left: Box::new(Expr::Var("x".to_string())),
+            op: BinOp::Gt,
+            right: Box::new(Expr::Literal(Lit::Int(10))),
+        };
+
+        let tm = TermManager::new();
+        let x = tm.mk_const(tm.integer_sort(), "x");
+        let vars = std::collections::HashMap::from([("x".to_string(), x)]);
+        let term = crate::expr_conv::expr_to_term(&tm, &expr, &vars).expect("term conversion");
+        assert_eq!(term.kind(), Kind::CVC5_KIND_GT);
+    }
+
+    #[test]
+    fn test_check_contract_spec_ok() {
+        let spec = "fn id_pos(x: { v: Int | v > 0 }) -> { v: Int | v > 0 } @post v > 0";
+        check_contract_spec(spec).expect("expected consistent contract");
+    }
 }

@@ -6,6 +6,11 @@ use facet::Facet;
 
 use crate::{ast::FunctionContract, parser::Parser};
 
+enum Annotation<'a> {
+    Contract(&'a str),
+    Other,
+}
+
 pub struct StructuralMapper {
     // We can add a GrammarStore here if needed for caching
 }
@@ -63,13 +68,15 @@ impl StructuralMapper {
             if let Some(annotation) = self.extract_annotation(text) {
                 // Find the next significant sibling
                 if let Some(target) = self.find_next_significant_node(node) {
-                    let mut parser = Parser::new(annotation);
-                    let contract = parser.parse_function_contract();
+                    if let Annotation::Contract(spec) = annotation {
+                        let mut parser = Parser::new(spec);
+                        let contract = parser.parse_function_contract();
 
-                    mappings.push(Mapping {
-                        target_range: target.byte_range(),
-                        contract,
-                    });
+                        mappings.push(Mapping {
+                            target_range: target.byte_range(),
+                            contract,
+                        });
+                    }
                 }
             }
         }
@@ -85,17 +92,35 @@ impl StructuralMapper {
         }
     }
 
-    fn extract_annotation<'a>(&self, comment: &'a str) -> Option<&'a str> {
+    fn extract_annotation<'a>(&self, comment: &'a str) -> Option<Annotation<'a>> {
         // Look for // l[...] or /* l[...] */
         let trimmed = comment.trim();
 
         if trimmed.starts_with("// l[") && trimmed.ends_with("]") {
-            Some(&trimmed[5..trimmed.len() - 1])
+            Some(Self::parse_annotation_payload(
+                &trimmed[5..trimmed.len() - 1],
+            ))
         } else if trimmed.starts_with("/* l[") && trimmed.ends_with("] */") {
-            Some(&trimmed[5..trimmed.len() - 3])
+            Some(Self::parse_annotation_payload(
+                &trimmed[5..trimmed.len() - 3],
+            ))
         } else {
             None
         }
+    }
+
+    fn parse_annotation_payload<'a>(payload: &'a str) -> Annotation<'a> {
+        let payload = payload.trim();
+        if let Some(spec) = payload.strip_prefix("contract:") {
+            return Annotation::Contract(spec.trim());
+        }
+
+        // Backwards-compatible shortcut used in existing tests/fixtures.
+        if payload.starts_with("fn ") {
+            return Annotation::Contract(payload);
+        }
+
+        Annotation::Other
     }
 
     fn find_next_significant_node<'a>(
@@ -127,5 +152,31 @@ mod tests {
         assert_eq!(mappings.len(), 2);
         assert_eq!(mappings[0].contract.name, "add");
         assert_eq!(mappings[1].contract.name, "sub");
+    }
+
+    #[test]
+    fn test_mapping_rust_contract_prefix() {
+        let mapper = StructuralMapper::new();
+        let path = Path::new("tests/fixtures/contract_prefix.rs");
+        let mappings = mapper.map_file(path).unwrap();
+
+        assert_eq!(mappings.len(), 1);
+        assert_eq!(mappings[0].contract.name, "mul");
+    }
+
+    #[test]
+    fn test_parse_contract_annotation_payload() {
+        match StructuralMapper::parse_annotation_payload("contract: fn add(x: Int) -> Int") {
+            Annotation::Contract(spec) => assert!(spec.starts_with("fn add")),
+            Annotation::Other => panic!("expected contract annotation"),
+        }
+    }
+
+    #[test]
+    fn test_parse_non_contract_annotation_payload() {
+        match StructuralMapper::parse_annotation_payload("type: Nat = { v: Int | v >= 0 }") {
+            Annotation::Contract(_) => panic!("expected non-contract annotation"),
+            Annotation::Other => {}
+        }
     }
 }

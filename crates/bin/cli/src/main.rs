@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use facet::Facet;
 use figue::{self as args, FigueBuiltins};
-use lmt_checker::check;
+use lmt_checker::check_path;
 
 #[derive(Facet, Debug)]
 struct Cli {
@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     match args.command {
         Some(Command::Check { path }) => {
             println!("Checking project at: {}", path);
-            check()?;
+            check_path(&path)?;
         }
         None => {
             println!("LMT: Refinement Type Proof Assistant");
