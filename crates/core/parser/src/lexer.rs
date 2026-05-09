@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize};
-use std::iter::Peekable;
-use std::str::Chars;
+use std::{iter::Peekable, str::Chars};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+use facet::Facet;
+
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum Token {
     // Keywords
     Fn,
@@ -252,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_lexer_refinement() {
-        let input = "{v:Int | v > 0}";
+        let input = "{ v: Int | v > 0 }";
         let mut lexer = Lexer::new(input);
 
         assert_eq!(lexer.next_token(), Token::LBrace);

@@ -4,8 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-arborium.workspace = true
-# tracey.workspace = true
 anyhow.workspace = true
+arborium.workspace = true
+facet.workspace = true
 thiserror.workspace = true
-serde.workspace = true

@@ -1,6 +1,7 @@
-use serde::{Deserialize, Serialize};
+use facet::Facet;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum BaseType {
     Int,
     Bool,
@@ -8,17 +9,19 @@ pub enum BaseType {
     Custom(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum Type {
     Base(BaseType),
     Refined {
         base: BaseType,
-        v: String, // Value variable name, e.g., 'v' in {v:Int | v > 0}
+        v: String, // Value variable name, e.g., 'v' in { v: Int | v > 0 }
         predicate: Expr,
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -33,7 +36,8 @@ pub enum Expr {
     Var(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum BinOp {
     And,
     Or,
@@ -50,20 +54,22 @@ pub enum BinOp {
     Div,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum UnOp {
     Not,
     Neg,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
 pub enum Lit {
     Int(i64),
     Bool(bool),
     Real(f64),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct FunctionContract {
     pub name: String,
     pub params: Vec<(String, Type)>,

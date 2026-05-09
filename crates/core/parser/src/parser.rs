@@ -1,5 +1,7 @@
-use crate::ast::*;
-use crate::lexer::{Lexer, Token};
+use crate::{
+    ast::*,
+    lexer::{Lexer, Token},
+};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -74,11 +76,7 @@ impl<'a> Parser<'a> {
         let predicate = self.parse_expr();
         self.expect(Token::RBrace);
 
-        Type::Refined {
-            base,
-            v,
-            predicate,
-        }
+        Type::Refined { base, v, predicate }
     }
 
     pub fn parse_expr(&mut self) -> Expr {
@@ -343,10 +341,10 @@ mod tests {
 
     #[test]
     fn test_parse_refined_type() {
-        let input = "{v:Int | v > 0}";
+        let input = "{ v: Int | v > 0 }";
         let mut parser = Parser::new(input);
         let ty = parser.parse_type();
-        
+
         match ty {
             Type::Refined { base, v, predicate } => {
                 assert_eq!(base, BaseType::Int);
@@ -356,10 +354,14 @@ mod tests {
                         assert_eq!(op, BinOp::Gt);
                         if let Expr::Var(s) = *left {
                             assert_eq!(s, "v");
-                        } else { panic!("Expected Var"); }
+                        } else {
+                            panic!("Expected Var");
+                        }
                         if let Expr::Literal(Lit::Int(n)) = *right {
                             assert_eq!(n, 0);
-                        } else { panic!("Expected Literal Int"); }
+                        } else {
+                            panic!("Expected Literal Int");
+                        }
                     }
                     _ => panic!("Expected Binary Expr"),
                 }
@@ -370,10 +372,10 @@ mod tests {
 
     #[test]
     fn test_parse_function_contract() {
-        let input = "fn div(x: Int, y: {v:Int | v != 0}) -> {v:Int | v == x / y} @pre x > 0 @post v >= 0";
+        let input = "fn div(x: Int, y: { v: Int | v != 0 }) -> { v: Int | v == x / y } @pre x > 0 @post v >= 0";
         let mut parser = Parser::new(input);
         let contract = parser.parse_function_contract();
-        
+
         assert_eq!(contract.name, "div");
         assert_eq!(contract.params.len(), 2);
         assert_eq!(contract.params[0].0, "x");
