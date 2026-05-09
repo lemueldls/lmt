@@ -82,7 +82,7 @@ impl StaticSynthesis {
                             tokens
                                 .as_slice()
                                 .map((src.len()..src.len()).into(), |spanned_token| {
-                                    (&spanned_token.token, &spanned_token.span)
+                                    (&spanned_token.inner, &spanned_token.span)
                                 }),
                         )
                         .into_output_errors()

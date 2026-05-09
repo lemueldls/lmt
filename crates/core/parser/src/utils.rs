@@ -7,13 +7,13 @@ pub type Error<'tokens, T> = Rich<'tokens, T, SimpleSpan>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 // #[cfg_attr(feature = "serde", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Spanned<T> {
-    pub token: T,
+    pub inner: T,
     pub span: SimpleSpan,
 }
 
 impl<T> Spanned<T> {
     pub fn new(inner: T, span: SimpleSpan) -> Self {
-        Self { token: inner, span }
+        Self { inner, span }
     }
 
     pub fn span(&self) -> SimpleSpan {
@@ -21,19 +21,19 @@ impl<T> Spanned<T> {
     }
 
     pub fn into_deref(self) -> T {
-        self.token
+        self.inner
     }
 
     pub fn deref_spanned(&self) -> (&T, SimpleSpan) {
-        (&self.token, self.span)
+        (&self.inner, self.span)
     }
 
     pub fn into_deref_spanned(self) -> (T, SimpleSpan) {
-        (self.token, self.span)
+        (self.inner, self.span)
     }
 
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
-        Spanned::new(f(self.token), self.span)
+        Spanned::new(f(self.inner), self.span)
     }
 
     pub fn span_mut(&mut self) -> &mut SimpleSpan {
@@ -43,7 +43,7 @@ impl<T> Spanned<T> {
 
 impl<T: fmt::Display> fmt::Display for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.token)
+        write!(f, "{}", self.inner)
     }
 }
 
@@ -51,12 +51,12 @@ impl<T> ops::Deref for Spanned<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.token
+        &self.inner
     }
 }
 
 impl<T> ops::DerefMut for Spanned<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.token
+        &mut self.inner
     }
 }

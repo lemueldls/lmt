@@ -204,7 +204,7 @@ pub fn expr_parser<'tokens, 'src: 'tokens, I: ParserInput<'tokens, 'src>>(
         let inline_expr = compare.labelled("expression").as_context();
 
         let block =
-            block(stmt, expr).map(|block| Spanned::new(Expr::Block(block.token), block.span));
+            block(stmt, expr).map(|block| Spanned::new(Expr::Block(block.inner), block.span));
 
         // let if_ = recursive(|if_| {
         //     just(Token::If)
@@ -444,7 +444,7 @@ pub fn path<'tokens, 'src: 'tokens, I: ParserInput<'tokens, 'src>>()
             }
 
             for segment in segments {
-                path = path.join(segment.token)
+                path = path.join(segment.inner)
             }
 
             Spanned::new(path, e.span())

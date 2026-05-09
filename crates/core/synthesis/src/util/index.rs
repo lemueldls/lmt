@@ -106,13 +106,14 @@ impl<I: LockIndex, T> SlotLockMap<I, T> {
     pub fn with_capacity_from(other: &Self) -> Self {
         Self::new(Vec::with_capacity(other.vec.read().len()))
     }
+}
 
-    pub fn find(&self, f: impl FnMut(&T) -> bool) -> Option<I> {
-        self.vec
-            .read()
-            .iter()
-            .position(f)
-            .map(|index| I::from_usize(index))
+impl<I: LockIndex, T: fmt::Debug> IntoIterator for SlotLockMap<I, T> {
+    type IntoIter = std::vec::IntoIter<T>;
+    type Item = T;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.into_inner().into_iter()
     }
 }
 

@@ -181,18 +181,18 @@ impl ModuleSynthesis {
                 Stmt::Error | Stmt::Import(..) | Stmt::Function(..) => unreachable!(),
 
                 Stmt::Let(typed_ident, value) => {
-                    if is_top_level {
-                        todo!("top-level let declarations")
-                    } else {
-                        self.declare_let(typed_ident.into_deref(), value, context);
-                    }
+                    // if is_top_level {
+                    //     todo!("top-level let declarations")
+                    // } else {
+                    self.declare_let(typed_ident.into_deref(), value, context);
+                    // }
                 }
                 Stmt::Expr(expr) => {
-                    if is_top_level {
-                        todo!("top-level expressions")
-                    } else {
-                        self.eval_expression(expr, context);
-                    }
+                    // if is_top_level {
+                    //     todo!("top-level expressions")
+                    // } else {
+                    self.eval_expression(expr, context);
+                    // }
                 }
                 Stmt::Return(expr) => return_value = Some(self.eval_expression(expr, context)),
             }

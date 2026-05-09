@@ -21,6 +21,4 @@ chumsky = { version = "0.12.0", features = [
   "nightly",
   "pratt",
 ], public = true }
-serde = { version = "1.0", features = [
-  "derive",
-], optional = true, public = true }
+serde = { version = "1.0", features = ["derive"], optional = true, public = true }

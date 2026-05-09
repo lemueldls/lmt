@@ -36,32 +36,6 @@ fn main() -> miette::Result<()> {
 
     let (module_id, errors) = synthesis.load_module(path, &src);
 
-    // let path = &PathBuf::from(path).canonicalize().unwrap();
-    // // fs::File::open(path).unwrap().read
-
-    // let project_dirs = ProjectDirs::from("dev", "lemueldls", "lmt").unwrap();
-    // let cache_dir = project_dirs.cache_dir();
-
-    // let root = cache_dir;
-    // let contents = &src;
-
-    // // AHashMap::with_hasher(hash_builder)
-
-    // // HashTabl
-
-    // let hash = {
-    //     let mut state = AHasher::default();
-    //     path.hash(&mut state);
-    //     contents.hash(&mut state);
-
-    //     state.finish()
-    // };
-
-    // path.exists()
-    // dbg!(hash);
-    // dbg!(data_encoding::HEXLOWER.encode(&hash.to_be_bytes()));
-    // let file = fs::File::create(root.join(hash.to_string())).unwrap();
-
     for error in errors {
         eprintln!(
             "{:?}",

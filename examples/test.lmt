@@ -1,34 +1,4 @@
-// import core/io
 
-fn main() -> x: uint8 {
-   let a = 5
-   let b = 6
-   let c = a + b
+fn main() {
+  let x = 2
 }
-
-// fn other() => 2
-
-/// "converges" at 0, 1, and 2
-/// output of `fib(n)` always (expect 0 and 1, but that's fine because we ignore base case) returns number less than `n`
-/// Create proof p: ((< 0) or (> 2))
-/// Test for (> 2):
-///    To converge at [0, 1, 2], `fib` must decrease n at most 0, 1, or 2 times.
-///    Passes because `fib` is always called with (n - 1) and (n - 2)
-/// Test for (< 0):
-///    To converge at [0, 1, 2], `fib` must increase n at most 0, 1, or 2 times.
-///    Fails because `fib` is never called with (n + 1) nor (n + 2)
-///
-// fn fib(n: integer): integer {
-//    match n {
-//       0 or 1 or 2 then 1,
-//       .. then fib(n - 1) + fib(n - 2)
-//    }
-// }
-
-
-// fn factorial(n: integer): integer {
-//    match n {
-//       0 or 1 => 1,
-//       .. => n * factorial(n - 1)
-//    }
-// }

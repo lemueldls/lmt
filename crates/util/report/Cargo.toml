@@ -10,7 +10,10 @@ workspace = true
 [features]
 default = ["color", "serde"]
 
-color = ["miette/fancy", "miette/syntect-highlighter"]
+color = [
+  "miette/fancy",
+  # "miette/syntect-highlighter"
+]
 serde = ["dep:serde", "miette/serde"]
 
 [dependencies]
