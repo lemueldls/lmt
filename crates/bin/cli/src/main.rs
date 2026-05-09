@@ -1,46 +1,42 @@
-use std::{
-    // collections::HashMap,
-    fs,
-    // hash::{DefaultHasher, Hash, Hasher},
-    path::{Path, PathBuf},
-};
+use anyhow::{Result, anyhow};
+use facet::Facet;
+use figue::{self as args, FigueBuiltins};
+use lmt_checker::check;
 
-// use ahash::{AHashMap, AHasher};
-// use ariadne::{sources, Color, Label, Report, ReportKind};
-// use directories::ProjectDirs;
-// use hashbrown::Equivalent;
-use lmt_report::miette::{self, IntoDiagnostic, NamedSource};
-use lmt_synthesis::{Graph, ModuleId, ModuleSynthesis, StaticSynthesis};
+#[derive(Facet, Debug)]
+struct Cli {
+    #[facet(args::subcommand)]
+    command: Option<Command>,
 
-// #[derive(Debug, Default)]
-// pub struct FsGraph {
-//     module_synthesis_map: HashMap<PathBuf, ModuleSynthesis>,
-// }
+    #[facet(flatten)]
+    builtins: FigueBuiltins,
+}
 
-// impl Graph for FsGraph {
-//     fn resolve_path(&mut self, path: &str) -> Option<String> {
-//         // let path = PathBuf::from(path).canonicalize().ok()?;
+#[derive(Facet, Debug)]
+#[repr(u8)]
+enum Command {
+    /// Check proofs in a project
+    Check {
+        /// Path to the project or file to check
+        #[facet(args::positional)]
+        path: String,
+    },
+}
 
-//         fs::read_to_string(path).ok()
-//     }
-// }
+fn main() -> Result<()> {
+    let outcome = figue::from_std_args::<Cli>();
+    let output = outcome.into_result().map_err(|e| anyhow!("{:?}", e))?;
+    let args = output.value;
 
-fn main() -> miette::Result<()> {
-    miette::set_panic_hook();
-
-    let synthesis = StaticSynthesis::default();
-    // let filename = env::args().nth(1).expect("no file given");
-
-    let path = "examples/test.lmt";
-    let src = fs::read_to_string(path).into_diagnostic()?;
-
-    let (module_id, errors) = synthesis.load_module(path, &src);
-
-    for error in errors {
-        eprintln!(
-            "{:?}",
-            error.report_with_source(path.to_string(), src.to_string())
-        )
+    match args.command {
+        Some(Command::Check { path }) => {
+            println!("Checking project at: {}", path);
+            check()?;
+        }
+        None => {
+            println!("LMT: Refinement Type Proof Assistant");
+            println!("Use --help for usage information.");
+        }
     }
 
     Ok(())

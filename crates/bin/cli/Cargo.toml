@@ -1,26 +1,13 @@
 [package]
-default-run = "lmt-cli"
 name = "lmt-cli"
-
-edition.workspace = true
+default-run = "lmt-cli"
 version.workspace = true
-
-[features]
-default = []
+edition.workspace = true
 
 [dependencies]
-# lmt-compiler = { path = "../../core/compiler", version = "0.1.0-alpha.0", public = true }
-lmt-parser = { path = "../../core/parser", version = "0.1.0-alpha.0", public = true }
-lmt-report = { path = "../../util/report", version = "0.1.0-alpha.0", public = true }
-lmt-synthesis = { path = "../../core/synthesis", version = "0.1.0-alpha.0", public = true }
-
-# data-encoding = "2.5.0"
-# directories = "5.0.1"
-# fs4 = "0.8.2"
-# hashbrown = { version = "0.14.3", features = ["nightly", "rayon"] }
-# ring = "0.17.8"
-# serde = { version = "1.0", features = ["derive"], public = true }
-# serde_json = "1.0"
-# simplelock = "0.4.1"
-# uuid = { version = "1.8.0", features = ["v4", "fast-rng", "serde", "zerocopy"] }
-# ahash = "0.8.11"
+lmt-parser = { path = "../../core/parser" }
+lmt-checker = { path = "../../core/checker" }
+figue.workspace = true
+facet.workspace = true
+anyhow.workspace = true
+tokio.workspace = true

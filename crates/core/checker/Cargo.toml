@@ -1,11 +1,10 @@
 [package]
-name = "lmt-parser"
+name = "lmt-checker"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-arborium.workspace = true
-# tracey.workspace = true
+lmt-parser = { path = "../parser" }
+cvc5-rs.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
-serde.workspace = true

@@ -1,3 +1,0 @@
-# `@lmt-lang/twoslash-linux-s390x-gnu`
-
-This is the **s390x-unknown-linux-gnu** binary for `@lmt-lang/twoslash`
