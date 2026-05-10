@@ -884,14 +884,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lmt-lang"
-version = "0.1.0-alpha.0"
-dependencies = [
- "anyhow",
- "thiserror",
-]
-
-[[package]]
 name = "lmt-lsp"
 version = "0.1.0-alpha.0"
 dependencies = [

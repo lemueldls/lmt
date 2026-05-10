@@ -1,8 +1,0 @@
-[package]
-name = "lmt-lang"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-anyhow.workspace = true
-thiserror.workspace = true
