@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use crate::syntax::{Binder, Expr, Program, Statement, Term, Type, UniverseLevel};
+use crate::{
+    Neutral, normalize, reify,
+    syntax::{Binder, Expr, Program, Statement, Term, Type, UniverseLevel},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct TypeEnv {
@@ -96,6 +99,7 @@ pub fn type_check(program: &Program, env: &mut TypeEnv) -> Result<Vec<TypeResult
                 env.insert(parameter.name.clone(), (*parameter.ty).clone());
                 // Simple check: lower `Expr` -> `Term`, synthesize the body and compare
                 let body_term = expr_to_term(body);
+
                 match synthesize(&body_term, env) {
                     Ok(inferred) => {
                         if !equal(&inferred, return_type) {
@@ -109,6 +113,7 @@ pub fn type_check(program: &Program, env: &mut TypeEnv) -> Result<Vec<TypeResult
                         // fallback: accept for now but record TODO
                     }
                 }
+
                 results.push(TypeResult::Type(return_type.clone()));
                 env.insert(name.clone(), return_type.clone());
             }
@@ -186,23 +191,25 @@ fn expr_to_term(e: &Expr) -> Term {
 /// # Test:
 ///   - `test_synth_var_found`: TypeEnv { ("x", Int) } ⊢ x ⇒ Int
 ///   - `test_synth_app`: Γ ⊢ (λx:Int.x) 42 ⇒ Int
-pub fn synthesize(_term: &Term, _env: &TypeEnv) -> Result<Type, TypeError> {
-    match _term {
+pub fn synthesize(term: &Term, env: &TypeEnv) -> Result<Type, TypeError> {
+    match term {
         Term::Int(_) => Ok(Type::Int),
         Term::Unit => Ok(Type::Unit),
         Term::Bool(_) => Ok(Type::Bool),
         Term::Var(name) => {
-            _env.lookup(name)
+            env.lookup(name)
                 .cloned()
                 .ok_or(TypeError::UnboundVariable(name.clone()))
         }
         Term::App { callee, argument } => {
             // synthesize callee, expect Pi, check argument
-            let fty = synthesize(callee, _env)?;
+            let fty = synthesize(callee, env)?;
+
             match fty {
                 Type::Pi { binder, body } => {
                     // check arg
-                    check(argument, &*binder.ty, _env)?;
+                    check(argument, &*binder.ty, env)?;
+
                     // NOTE: not performing full dependent substitution in types;
                     // if body contains the binder.name, a full implementation must substitute.
                     Ok(*body.clone())
@@ -221,17 +228,18 @@ pub fn synthesize(_term: &Term, _env: &TypeEnv) -> Result<Type, TypeError> {
                 }
             }
         }
-        Term::Lambda { binder, body } => {
+        Term::Lambda { binder: _, body: _ } => {
             // Lambda is not synthesizable without expected type
             Err(TypeError::Unsupported)
         }
-        Term::Pair(a, b) => Err(TypeError::Unsupported),
-        Term::Fst(t) => Err(TypeError::Unsupported),
-        Term::Snd(t) => Err(TypeError::Unsupported),
+        Term::Pair(..) => Err(TypeError::Unsupported),
+        Term::Fst(_) => Err(TypeError::Unsupported),
+        Term::Snd(_) => Err(TypeError::Unsupported),
         Term::Let { name, value, body } => {
-            let vty = synthesize(&*value, _env)?;
-            let mut env2 = _env.clone();
+            let vty = synthesize(&*value, env)?;
+            let mut env2 = env.clone();
             env2.insert(name.clone(), vty);
+
             synthesize(&*body, &env2)
         }
         Term::If {
@@ -239,9 +247,10 @@ pub fn synthesize(_term: &Term, _env: &TypeEnv) -> Result<Type, TypeError> {
             then_branch,
             else_branch,
         } => {
-            check(condition, &Type::Bool, _env)?;
-            let t1 = synthesize(then_branch, _env)?;
-            let t2 = synthesize(else_branch, _env)?;
+            check(condition, &Type::Bool, env)?;
+            let t1 = synthesize(then_branch, env)?;
+            let t2 = synthesize(else_branch, env)?;
+
             if equal(&t1, &t2) {
                 Ok(t1)
             } else {
@@ -267,8 +276,8 @@ pub fn synthesize(_term: &Term, _env: &TypeEnv) -> Result<Type, TypeError> {
 ///   - `test_check_lambda_pi`: ∅ ⊢ λx:Int.x ⇐ Int → Int
 ///   - `test_check_int_int_ok`: ∅ ⊢ 42 ⇐ Int
 ///   - `test_check_int_bool_fail`: ∅ ⊢ 42 ⇐ Bool → Mismatch error
-fn check(_term: &Term, _ty: &Type, _env: &TypeEnv) -> Result<(), TypeError> {
-    match (_term, _ty) {
+fn check(term: &Term, ty: &Type, env: &TypeEnv) -> Result<(), TypeError> {
+    match (term, ty) {
         (Term::Int(_), Type::Int) => Ok(()),
         (Term::Bool(_), Type::Bool) => Ok(()),
         (
@@ -285,19 +294,22 @@ fn check(_term: &Term, _ty: &Type, _env: &TypeEnv) -> Result<(), TypeError> {
                     found: (*binder.ty).clone(),
                 });
             }
+
             // extend env and check body against pbody
-            let mut env2 = _env.clone();
+            let mut env2 = env.clone();
             env2.insert(binder.name.clone(), (*binder.ty).clone());
+
             check(&*body, &*pbody, &env2)
         }
         (..) => {
             // fallback: try to synthesize and compare
-            let inferred = synthesize(_term, _env)?;
-            if equal(&inferred, _ty) {
+            let inferred = synthesize(term, env)?;
+
+            if equal(&inferred, ty) {
                 Ok(())
             } else {
                 Err(TypeError::Mismatch {
-                    expected: _ty.clone(),
+                    expected: ty.clone(),
                     found: inferred,
                 })
             }
@@ -308,13 +320,41 @@ fn check(_term: &Term, _ty: &Type, _env: &TypeEnv) -> Result<(), TypeError> {
 /// TODO (Phase 2): Implement definitional equality check A ≡ B.
 /// Uses NbE normalization: A ≡ B iff normalize(A) = normalize(B).
 /// See `/plans/core_calculus.md` § "Definitional Equality".
-fn equal(_a: &Type, _b: &Type) -> bool {
-    // crude structural equality with normalization for Term-like parts
-    if _a == _b {
+fn equal(a: &Type, b: &Type) -> bool {
+    if a == b {
         return true;
     }
-    // For refinements and quoted terms, attempt normalization of inner terms
-    match (_a, _b) {
+
+    match (a, b) {
+        (Type::Quote(left_term), Type::Quote(right_term)) => {
+            normalize(left_term) == normalize(right_term)
+        }
+        (
+            Type::Pi {
+                binder: left_binder,
+                body: left_body,
+            },
+            Type::Pi {
+                binder: right_binder,
+                body: right_body,
+            },
+        ) => {
+            equal(&left_binder.ty, &right_binder.ty)
+                && equal_type_under_fresh_witness(left_binder, left_body, right_binder, right_body)
+        }
+        (
+            Type::Sigma {
+                binder: left_binder,
+                body: left_body,
+            },
+            Type::Sigma {
+                binder: right_binder,
+                body: right_body,
+            },
+        ) => {
+            equal(&left_binder.ty, &right_binder.ty)
+                && equal_type_under_fresh_witness(left_binder, left_body, right_binder, right_body)
+        }
         (
             Type::Refine {
                 binder: ba,
@@ -329,9 +369,205 @@ fn equal(_a: &Type, _b: &Type) -> bool {
             if ba.ty != bb.ty {
                 return false;
             }
+
             // TODO: convert Expr -> Term or evaluate predicates via SMT; for now structural compare
             pa == pb
         }
         _ => false,
+    }
+}
+
+fn equal_type_under_fresh_witness(
+    left_binder: &Binder,
+    left_body: &Type,
+    right_binder: &Binder,
+    right_body: &Type,
+) -> bool {
+    let witness_name = fresh_type_witness_name(left_binder, left_body, right_binder, right_body);
+    let witness_value = crate::reflect(&left_binder.ty, Neutral::Var(witness_name.clone()));
+    let witness_term = reify(&left_binder.ty, &witness_value);
+
+    let left_substituted = substitute_type_term(left_body, &left_binder.name, &witness_term);
+    let right_substituted = substitute_type_term(right_body, &right_binder.name, &witness_term);
+
+    equal(&left_substituted, &right_substituted)
+}
+
+fn fresh_type_witness_name(
+    left_binder: &Binder,
+    left_body: &Type,
+    right_binder: &Binder,
+    right_body: &Type,
+) -> String {
+    let forbidden = type_free_vars(left_body)
+        .into_iter()
+        .chain(type_free_vars(right_body))
+        .chain(std::iter::once(left_binder.name.clone()))
+        .chain(std::iter::once(right_binder.name.clone()))
+        .collect::<std::collections::HashSet<_>>();
+
+    let mut index = 0usize;
+    loop {
+        let candidate = format!("x_eq_{}", index);
+
+        if !forbidden.contains(&candidate) {
+            return candidate;
+        }
+
+        index += 1;
+    }
+}
+
+fn substitute_type_term(ty: &Type, var: &str, value: &Term) -> Type {
+    match ty {
+        Type::Universe(_) | Type::Bool | Type::Int | Type::Unit | Type::Var(_) => ty.clone(),
+        Type::Pi { binder, body } => {
+            if binder.name == var {
+                Type::Pi {
+                    binder: binder.clone(),
+                    body: body.clone(),
+                }
+            } else {
+                Type::Pi {
+                    binder: binder.clone(),
+                    body: Box::new(substitute_type_term(body, var, value)),
+                }
+            }
+        }
+        Type::Sigma { binder, body } => {
+            if binder.name == var {
+                Type::Sigma {
+                    binder: binder.clone(),
+                    body: body.clone(),
+                }
+            } else {
+                Type::Sigma {
+                    binder: binder.clone(),
+                    body: Box::new(substitute_type_term(body, var, value)),
+                }
+            }
+        }
+        Type::Refine { binder, predicate } => {
+            Type::Refine {
+                binder: binder.clone(),
+                predicate: predicate.clone(),
+            }
+        }
+        Type::Quote(term) => Type::Quote(Box::new(Term::substitute(term, var, value))),
+    }
+}
+
+fn type_free_vars(ty: &Type) -> std::collections::HashSet<String> {
+    match ty {
+        Type::Universe(_) | Type::Bool | Type::Int | Type::Unit => std::collections::HashSet::new(),
+        Type::Var(name) => std::iter::once(name.clone()).collect(),
+        Type::Pi { binder, body } | Type::Sigma { binder, body } => {
+            let mut vars = type_free_vars(body);
+            vars.remove(&binder.name);
+            vars.extend(type_free_vars(&binder.ty));
+
+            vars
+        }
+        Type::Refine { binder, predicate } => {
+            let mut vars = type_free_vars(&binder.ty);
+            vars.extend(expr_free_vars(predicate));
+
+            vars
+        }
+        Type::Quote(term) => term_free_vars(term),
+    }
+}
+
+fn term_free_vars(term: &Term) -> std::collections::HashSet<String> {
+    match term {
+        Term::Var(name) => std::iter::once(name.clone()).collect(),
+        Term::Int(_) | Term::Bool(_) | Term::Unit => std::collections::HashSet::new(),
+        Term::Lambda { binder, body } => {
+            let mut vars = term_free_vars(body);
+            vars.remove(&binder.name);
+
+            vars
+        }
+        Term::App { callee, argument } => {
+            let mut vars = term_free_vars(callee);
+            vars.extend(term_free_vars(argument));
+
+            vars
+        }
+        Term::Pair(left, right) => {
+            let mut vars = term_free_vars(left);
+            vars.extend(term_free_vars(right));
+
+            vars
+        }
+        Term::Fst(term) | Term::Snd(term) | Term::Quote(term) | Term::Eval(term) => {
+            term_free_vars(term)
+        }
+        Term::Let { name, value, body } => {
+            let mut vars = term_free_vars(value);
+            let mut body_vars = term_free_vars(body);
+            body_vars.remove(name);
+            vars.extend(body_vars);
+
+            vars
+        }
+        Term::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            let mut vars = term_free_vars(condition);
+            vars.extend(term_free_vars(then_branch));
+            vars.extend(term_free_vars(else_branch));
+
+            vars
+        }
+    }
+}
+
+fn expr_free_vars(expr: &Expr) -> std::collections::HashSet<String> {
+    match expr {
+        Expr::Var(name) => std::iter::once(name.clone()).collect(),
+        Expr::Int(_) | Expr::Bool(_) | Expr::Unit => std::collections::HashSet::new(),
+        Expr::Lambda { binder, body } => {
+            let mut vars = expr_free_vars(body);
+            vars.remove(&binder.name);
+
+            vars
+        }
+        Expr::App { callee, argument } => {
+            let mut vars = expr_free_vars(callee);
+            vars.extend(expr_free_vars(argument));
+
+            vars
+        }
+        Expr::Pair(left, right) => {
+            let mut vars = expr_free_vars(left);
+            vars.extend(expr_free_vars(right));
+
+            vars
+        }
+        Expr::Fst(term) | Expr::Snd(term) | Expr::Quote(term) | Expr::Eval(term) => {
+            expr_free_vars(term)
+        }
+        Expr::Let { name, value, body } => {
+            let mut vars = expr_free_vars(value);
+            let mut body_vars = expr_free_vars(body);
+            body_vars.remove(name);
+            vars.extend(body_vars);
+
+            vars
+        }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            let mut vars = expr_free_vars(condition);
+            vars.extend(expr_free_vars(then_branch));
+            vars.extend(expr_free_vars(else_branch));
+
+            vars
+        }
     }
 }
