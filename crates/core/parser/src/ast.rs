@@ -34,6 +34,12 @@ pub enum Expr {
     },
     Literal(Lit),
     Var(String),
+    Let {
+        name: String,
+        ty: Option<Box<Type>>,
+        value: Box<Expr>,
+        body: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Facet)]

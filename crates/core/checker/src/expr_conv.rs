@@ -46,6 +46,17 @@ pub fn expr_to_term(tm: &TermManager, expr: &Expr, vars: &HashMap<String, Term>)
             };
             Ok(tm.mk_term(kind, &[l, r]))
         }
+        Expr::Let {
+            name,
+            ty: _,
+            value,
+            body,
+        } => {
+            let val_term = expr_to_term(tm, value, vars)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val_term);
+            expr_to_term(tm, body, &new_vars)
+        }
     }
 }
 

@@ -55,7 +55,11 @@ impl<'a> Parser<'a> {
                 Expr::Literal(Lit::Bool(true))
             };
             self.expect(Token::RParen);
-            return Type::Refined { base, v: name, predicate };
+            return Type::Refined {
+                base,
+                v: name,
+                predicate,
+            };
         }
 
         let base = match &self.current_token {
@@ -70,7 +74,11 @@ impl<'a> Parser<'a> {
         if self.current_token == Token::Pipe {
             self.advance();
             let predicate = self.parse_expr();
-            Type::Refined { base, v: "it".to_string(), predicate }
+            Type::Refined {
+                base,
+                v: "it".to_string(),
+                predicate,
+            }
         } else {
             Type::Base(base)
         }
@@ -92,6 +100,40 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_expr(&mut self) -> Expr {
+        if self.current_token == Token::Let {
+            self.advance();
+            let name = if let Token::Ident(s) = &self.current_token {
+                let n = s.clone();
+                self.advance();
+                n
+            } else {
+                panic!("Expected identifier after let");
+            };
+
+            let ty = if self.current_token == Token::Colon {
+                self.advance();
+                Some(Box::new(self.parse_type()))
+            } else {
+                None
+            };
+
+            self.expect(Token::Assign);
+            let value = Box::new(self.parse_expr());
+
+            if self.current_token == Token::Semi {
+                self.advance();
+            }
+
+            let body = Box::new(self.parse_expr());
+
+            return Expr::Let {
+                name,
+                ty,
+                value,
+                body,
+            };
+        }
+
         self.parse_implies()
     }
 
@@ -420,15 +462,17 @@ mod tests {
         assert_eq!(contract.params[0].0, "x");
         assert_eq!(contract.params[1].0, "y");
         match &contract.return_type {
-            Type::Refined { base, v, predicate: _ } => {
+            Type::Refined {
+                base,
+                v,
+                predicate: _,
+            } => {
                 assert_eq!(base, &BaseType::Int);
                 assert_eq!(v, "res");
             }
             _ => panic!("Expected named refined return type"),
         }
     }
-
-
 
     #[test]
     fn test_parse_type_alias() {
@@ -449,8 +493,7 @@ mod tests {
 
     #[test]
     fn test_parse_spec_items_mixed() {
-        let input =
-            "let Nat = Int | it >= 0 let inc(x: Nat): (res: Nat | res == x + 1) @assert: 1 + 1 == 2";
+        let input = "let Nat = Int | it >= 0 let inc(x: Nat): (res: Nat | res == x + 1) @assert: 1 + 1 == 2";
         let items = parse_spec_items(input);
 
         assert_eq!(items.len(), 3);

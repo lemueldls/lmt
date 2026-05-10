@@ -149,6 +149,23 @@ fn substitute_var(expr: &Expr, from: &str, to: &str) -> Expr {
                 right: Box::new(substitute_var(right, from, to)),
             }
         }
+        Expr::Let {
+            name,
+            ty,
+            value,
+            body,
+        } => {
+            Expr::Let {
+                name: name.clone(),
+                ty: ty.clone(),
+                value: Box::new(substitute_var(value, from, to)),
+                body: if name == from {
+                    body.clone() // Shadowing
+                } else {
+                    Box::new(substitute_var(body, from, to))
+                },
+            }
+        }
     }
 }
 

@@ -9,8 +9,6 @@ use crate::{
     parser::{Parser, parse_spec_items},
 };
 
-
-
 pub struct StructuralMapper {
     // We can add a GrammarStore here if needed for caching
 }
@@ -186,7 +184,10 @@ mod tests {
     #[test]
     fn test_extract_contract() {
         let mapper = StructuralMapper::new();
-        match mapper.extract_annotation("// @[let add(x: Int): Int]").unwrap() {
+        match mapper
+            .extract_annotation("// @[let add(x: Int): Int]")
+            .unwrap()
+        {
             SpecItem::FunctionContract(c) => assert_eq!(c.name, "add"),
             _ => panic!("expected contract"),
         }
@@ -195,7 +196,10 @@ mod tests {
     #[test]
     fn test_extract_type_alias() {
         let mapper = StructuralMapper::new();
-        match mapper.extract_annotation("// @[let Nat = Int | it >= 0]").unwrap() {
+        match mapper
+            .extract_annotation("// @[let Nat = Int | it >= 0]")
+            .unwrap()
+        {
             SpecItem::TypeAlias(a) => assert_eq!(a.name, "Nat"),
             _ => panic!("expected type alias"),
         }
@@ -205,7 +209,7 @@ mod tests {
     fn test_extract_assert() {
         let mapper = StructuralMapper::new();
         match mapper.extract_annotation("// @[@assert x > 0]").unwrap() {
-            SpecItem::Assertion(_) => {},
+            SpecItem::Assertion(_) => {}
             _ => panic!("expected assertion"),
         }
     }

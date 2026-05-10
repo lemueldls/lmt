@@ -3,16 +3,16 @@ use facet::Facet;
 use figue::{self as args, FigueBuiltins};
 use lmt_checker::check_path;
 
-#[derive(Facet, Debug)]
+#[derive(Facet)]
 struct Cli {
     #[facet(args::subcommand)]
-    command: Option<Command>,
+    command: Command,
 
     #[facet(flatten)]
     builtins: FigueBuiltins,
 }
 
-#[derive(Facet, Debug)]
+#[derive(Facet)]
 #[repr(u8)]
 enum Command {
     /// Check proofs in a project
@@ -24,18 +24,12 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    let outcome = figue::from_std_args::<Cli>();
-    let output = outcome.into_result().map_err(|e| anyhow!("{:?}", e))?;
-    let args = output.value;
+    let cli: Cli = figue::from_std_args().unwrap();
 
-    match args.command {
-        Some(Command::Check { path }) => {
+    match cli.command {
+        Command::Check { path } => {
             println!("Checking project at: {}", path);
             check_path(&path)?;
-        }
-        None => {
-            println!("LMT: Refinement Type Proof Assistant");
-            println!("Use --help for usage information.");
         }
     }
 

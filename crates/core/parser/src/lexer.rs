@@ -17,11 +17,11 @@ pub enum Token {
     RParen, // )
     Pipe,   // |
     Colon,  // :
+    Semi,   // ;
     Comma,  // ,
     Arrow,  // ->
 
     // Annotations
-
     Assert, // @assert
 
     // Operators
@@ -80,6 +80,7 @@ impl<'a> Lexer<'a> {
             }
             Some(':') => Token::Colon,
             Some(',') => Token::Comma,
+            Some(';') => Token::Semi,
             Some('-') => {
                 if let Some('>') = self.input.peek() {
                     self.input.next();
@@ -202,7 +203,6 @@ impl<'a> Lexer<'a> {
         }
 
         match s.as_str() {
-
             "assert" => Token::Assert,
             _ => panic!("Unknown annotation: @{}", s),
         }
