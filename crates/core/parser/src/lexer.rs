@@ -6,8 +6,7 @@ use facet::Facet;
 #[repr(u8)]
 pub enum Token {
     // Keywords
-    Fn,
-    Type,
+    Let,
     True,
     False,
 
@@ -22,8 +21,7 @@ pub enum Token {
     Arrow,  // ->
 
     // Annotations
-    Pre,    // @pre
-    Post,   // @post
+
     Assert, // @assert
 
     // Operators
@@ -165,8 +163,7 @@ impl<'a> Lexer<'a> {
         }
 
         match ident.as_str() {
-            "fn" => Token::Fn,
-            "type" => Token::Type,
+            "let" => Token::Let,
             "true" => Token::True,
             "false" => Token::False,
             _ => Token::Ident(ident),
@@ -205,8 +202,7 @@ impl<'a> Lexer<'a> {
         }
 
         match s.as_str() {
-            "pre" => Token::Pre,
-            "post" => Token::Post,
+
             "assert" => Token::Assert,
             _ => panic!("Unknown annotation: @{}", s),
         }
@@ -219,19 +215,17 @@ mod tests {
 
     #[test]
     fn test_lexer_basic() {
-        let input = "fn type { } | : , -> @pre @post @assert && || ! => == = != < <= > >= + - * / ident 123 45.6 true false";
+        let input = "let { } | : , -> @assert && || ! => == = != < <= > >= + - * / ident 123 45.6 true false";
         let mut lexer = Lexer::new(input);
 
-        assert_eq!(lexer.next_token(), Token::Fn);
-        assert_eq!(lexer.next_token(), Token::Type);
+        assert_eq!(lexer.next_token(), Token::Let);
         assert_eq!(lexer.next_token(), Token::LBrace);
         assert_eq!(lexer.next_token(), Token::RBrace);
         assert_eq!(lexer.next_token(), Token::Pipe);
         assert_eq!(lexer.next_token(), Token::Colon);
         assert_eq!(lexer.next_token(), Token::Comma);
         assert_eq!(lexer.next_token(), Token::Arrow);
-        assert_eq!(lexer.next_token(), Token::Pre);
-        assert_eq!(lexer.next_token(), Token::Post);
+
         assert_eq!(lexer.next_token(), Token::Assert);
         assert_eq!(lexer.next_token(), Token::And);
         assert_eq!(lexer.next_token(), Token::Or);
@@ -258,17 +252,13 @@ mod tests {
 
     #[test]
     fn test_lexer_refinement() {
-        let input = "{ v: Int | v > 0 }";
+        let input = "Int | it > 0";
         let mut lexer = Lexer::new(input);
 
-        assert_eq!(lexer.next_token(), Token::LBrace);
-        assert_eq!(lexer.next_token(), Token::Ident("v".to_string()));
-        assert_eq!(lexer.next_token(), Token::Colon);
         assert_eq!(lexer.next_token(), Token::Ident("Int".to_string()));
         assert_eq!(lexer.next_token(), Token::Pipe);
-        assert_eq!(lexer.next_token(), Token::Ident("v".to_string()));
+        assert_eq!(lexer.next_token(), Token::Ident("it".to_string()));
         assert_eq!(lexer.next_token(), Token::Gt);
         assert_eq!(lexer.next_token(), Token::Int(0));
-        assert_eq!(lexer.next_token(), Token::RBrace);
     }
 }

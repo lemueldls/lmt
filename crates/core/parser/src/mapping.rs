@@ -9,12 +9,7 @@ use crate::{
     parser::{Parser, parse_spec_items},
 };
 
-enum Annotation {
-    Contract(String),
-    TypeAlias(String),
-    Assert(String),
-    Other,
-}
+
 
 pub struct StructuralMapper {
     // We can add a GrammarStore here if needed for caching
@@ -104,29 +99,13 @@ impl StructuralMapper {
         source: &str,
         mappings: &mut Vec<SpecItemMapping>,
     ) {
-        if matches!(node.kind(), "comment" | "line_comment" | "block_comment") {
+        if node_is_comment(&node) {
             let text = &source[node.byte_range()];
-            if let Some(annotation) = self.extract_annotation(text) {
+            if let Some(item) = self.extract_annotation(text) {
                 // Find the next significant sibling
                 let target_range = self
                     .find_next_significant_node(node)
                     .map(|target| target.byte_range());
-
-                let item = match annotation {
-                    Annotation::Contract(spec) => {
-                        let mut parser = Parser::new(&spec);
-                        SpecItem::FunctionContract(parser.parse_function_contract())
-                    }
-                    Annotation::TypeAlias(spec) => {
-                        let mut parser = Parser::new(&spec);
-                        SpecItem::TypeAlias(parser.parse_type_alias())
-                    }
-                    Annotation::Assert(spec) => {
-                        let mut parser = Parser::new(&spec);
-                        SpecItem::Assertion(parser.parse_assertion())
-                    }
-                    Annotation::Other => return,
-                };
 
                 mappings.push(SpecItemMapping { target_range, item });
             }
@@ -143,38 +122,20 @@ impl StructuralMapper {
         }
     }
 
-    fn extract_annotation(&self, comment: &str) -> Option<Annotation> {
-        // Look for // l[...] or /* l[...] */
+    fn extract_annotation(&self, comment: &str) -> Option<SpecItem> {
+        // Look for // @[...] or /* @[...] */
         let trimmed = comment.trim();
 
-        if trimmed.starts_with("// l[") && trimmed.ends_with("]") {
-            Some(Self::parse_annotation_payload(
-                &trimmed[5..trimmed.len() - 1],
-            ))
-        } else if trimmed.starts_with("/* l[") && trimmed.ends_with("] */") {
-            Some(Self::parse_annotation_payload(
-                &trimmed[5..trimmed.len() - 3],
-            ))
+        let payload = if trimmed.starts_with("// @[") && trimmed.ends_with("]") {
+            &trimmed[5..trimmed.len() - 1]
+        } else if trimmed.starts_with("/* @[") && trimmed.ends_with("] */") {
+            &trimmed[5..trimmed.len() - 3]
         } else {
-            None
-        }
-    }
+            return None;
+        };
 
-    fn parse_annotation_payload(payload: &str) -> Annotation {
-        let payload = payload.trim();
-        if payload.starts_with("fn ") {
-            return Annotation::Contract(payload.to_string());
-        }
-
-        if payload.starts_with("type ") {
-            return Annotation::TypeAlias(payload.to_string());
-        }
-
-        if payload.starts_with("@assert") {
-            return Annotation::Assert(payload.to_string());
-        }
-
-        Annotation::Other
+        let mut parser = Parser::new(payload);
+        Some(parser.parse_spec_item())
     }
 
     fn find_next_significant_node<'a>(
@@ -183,7 +144,7 @@ impl StructuralMapper {
     ) -> Option<tree_sitter::Node<'a>> {
         let mut current = node;
         while let Some(sibling) = current.next_sibling() {
-            if sibling.kind() != "comment" && sibling.is_named() {
+            if !node_is_comment(&sibling) && sibling.is_named() {
                 return Some(sibling);
             }
             current = sibling;
@@ -191,6 +152,10 @@ impl StructuralMapper {
 
         None
     }
+}
+
+fn node_is_comment(node: &tree_sitter::Node) -> bool {
+    matches!(node.kind(), "comment" | "line_comment" | "block_comment")
 }
 
 #[cfg(test)]
@@ -219,48 +184,30 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_fn_annotation_payload() {
-        match StructuralMapper::parse_annotation_payload("fn add(x: Int) -> Int") {
-            Annotation::Contract(spec) => assert!(spec.starts_with("fn add")),
-            Annotation::TypeAlias(_) | Annotation::Assert(_) | Annotation::Other => {
-                panic!("expected contract annotation")
-            }
+    fn test_extract_contract() {
+        let mapper = StructuralMapper::new();
+        match mapper.extract_annotation("// @[let add(x: Int): Int]").unwrap() {
+            SpecItem::FunctionContract(c) => assert_eq!(c.name, "add"),
+            _ => panic!("expected contract"),
         }
     }
 
     #[test]
-    fn test_parse_type_annotation_payload() {
-        match StructuralMapper::parse_annotation_payload("type Nat = { v: Int | v >= 0 }") {
-            Annotation::Contract(_) => panic!("expected type annotation"),
-            Annotation::TypeAlias(spec) => assert_eq!(spec, "type Nat = { v: Int | v >= 0 }"),
-            Annotation::Assert(_) | Annotation::Other => panic!("expected type annotation"),
+    fn test_extract_type_alias() {
+        let mapper = StructuralMapper::new();
+        match mapper.extract_annotation("// @[let Nat = Int | it >= 0]").unwrap() {
+            SpecItem::TypeAlias(a) => assert_eq!(a.name, "Nat"),
+            _ => panic!("expected type alias"),
         }
     }
 
     #[test]
-    fn test_parse_assert_annotation_payload() {
-        match StructuralMapper::parse_annotation_payload("@assert x > 0") {
-            Annotation::Assert(spec) => assert_eq!(spec, "@assert x > 0"),
-            Annotation::Contract(_) | Annotation::TypeAlias(_) | Annotation::Other => {
-                panic!("expected assert annotation")
-            }
+    fn test_extract_assert() {
+        let mapper = StructuralMapper::new();
+        match mapper.extract_annotation("// @[@assert x > 0]").unwrap() {
+            SpecItem::Assertion(_) => {},
+            _ => panic!("expected assertion"),
         }
-    }
-
-    #[test]
-    fn test_legacy_prefix_payloads_are_ignored() {
-        assert!(matches!(
-            StructuralMapper::parse_annotation_payload("contract: fn add(x: Int) -> Int"),
-            Annotation::Other
-        ));
-        assert!(matches!(
-            StructuralMapper::parse_annotation_payload("type: Nat = { v: Int | v >= 0 }"),
-            Annotation::Other
-        ));
-        assert!(matches!(
-            StructuralMapper::parse_annotation_payload("assert: x > 0"),
-            Annotation::Other
-        ));
     }
 
     #[test]

@@ -41,12 +41,14 @@ pub fn check_spec_item(item: &SpecItem, env: &mut VerificationEnv) -> Result<()>
         SpecItem::TypeAlias(alias) => {
             check_type_alias_consistency(alias)?;
             env.insert_alias(alias.clone());
+
             Ok(())
         }
         SpecItem::FunctionContract(contract) => check_contract_consistency_with_env(contract, env),
         SpecItem::Assertion(assertion) => {
             check_assertion(assertion, env)?;
             env.add_fact(assertion.predicate.clone());
+
             Ok(())
         }
     }
@@ -80,17 +82,9 @@ fn check_contract_consistency_with_env(
         assumptions.push(expr_to_term(&tm, fact, solver_env.vars())?);
     }
 
-    for pre in &contract.pre_conditions {
-        assumptions.push(expr_to_term(&tm, pre, solver_env.vars())?);
-    }
-
     if let Type::Refined { v, predicate, .. } = &contract.return_type {
         let pred = substitute_var(predicate, v, "v");
         assumptions.push(expr_to_term(&tm, &pred, solver_env.vars())?);
-    }
-
-    for post in &contract.post_conditions {
-        assumptions.push(expr_to_term(&tm, post, solver_env.vars())?);
     }
 
     if solver::is_satisfiable(&tm, &assumptions)? {
@@ -109,6 +103,7 @@ fn check_type_alias_consistency(alias: &TypeAlias) -> Result<()> {
         let mut solver_env = SolverEnv::new();
         solver_env.insert_var_from_type(&tm, v, &alias.ty);
         let predicate_term = expr_to_term(&tm, predicate, solver_env.vars())?;
+
         if solver::is_satisfiable(&tm, &[predicate_term])? {
             Ok(())
         } else {
@@ -165,17 +160,23 @@ mod tests {
 
     #[test]
     fn test_check_contract_consistency_ok() {
-        let input = "fn clamp(x: Int, min: Int, max: { v: Int | v >= min }) -> { v: Int | v >= min && v <= max } @pre min <= max @post v >= min";
+        let input = "let clamp(x: Int, min: Int, max: Int | it >= min): (res: Int | res >= min && res <= max)";
         let mut parser = Parser::new(input);
-        let contract = parser.parse_function_contract();
+        let contract = match parser.parse_spec_item() {
+            SpecItem::FunctionContract(c) => c,
+            _ => panic!("Expected FunctionContract"),
+        };
         check_contract_consistency(&contract).expect("expected consistent contract");
     }
 
     #[test]
     fn test_check_contract_consistency_inconsistent() {
-        let input = "fn bad(x: Int) -> { v: Int | v > 0 } @post v < 0";
+        let input = "let bad(x: Int): (res: Int | res > 0 && res < 0)";
         let mut parser = Parser::new(input);
-        let contract = parser.parse_function_contract();
+        let contract = match parser.parse_spec_item() {
+            SpecItem::FunctionContract(c) => c,
+            _ => panic!("Expected FunctionContract"),
+        };
         let result = check_contract_consistency(&contract);
         assert!(result.is_err());
     }

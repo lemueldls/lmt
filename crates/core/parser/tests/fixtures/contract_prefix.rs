@@ -1,7 +1,7 @@
-// l[fn mul(x: Int, y: Int) -> { v: Int | v == x * y }]
+// @[let mul(x: Int, y: Int): (res: Int | res == x * y)]
 fn mul(x: i32, y: i32) -> i32 {
     x * y
 }
 
-// l[type Nat = { v: Int | v >= 0 }]
+// @[let Nat = Int | it >= 0]
 fn ignored() {}

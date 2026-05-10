@@ -58,7 +58,11 @@ pub fn check_path(path: &str) -> Result<()> {
 
 pub fn check_contract_spec(spec: &str) -> Result<()> {
     let mut parser = Parser::new(spec);
-    let contract = parser.parse_function_contract();
+    let contract = match parser.parse_spec_item() {
+        lmt_parser::SpecItem::FunctionContract(c) => c,
+        _ => return Err(anyhow::anyhow!("expected function contract")),
+    };
+
     refinement::check_contract_consistency(&contract)
 }
 
@@ -77,6 +81,7 @@ fn check_file(path: &Path) -> Result<()> {
                 .as_ref()
                 .map(|range| format!("bytes {}..{}", range.start, range.end))
                 .unwrap_or_else(|| "top-level item".to_string());
+
             format!(
                 "verification failed for {} in {} ({})",
                 location,
@@ -102,6 +107,7 @@ fn item_summary(item: &lmt_parser::SpecItem) -> String {
 fn collect_supported_files(root: &Path) -> Result<Vec<std::path::PathBuf>> {
     let mut out = Vec::new();
     collect_supported_files_impl(root, &mut out)?;
+
     Ok(out)
 }
 
@@ -149,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_check_contract_spec_ok() {
-        let spec = "fn id_pos(x: { v: Int | v > 0 }) -> { v: Int | v > 0 } @post v > 0";
+        let spec = "let id_pos(x: Int | it > 0): (res: Int | res > 0)";
         check_contract_spec(spec).expect("expected consistent contract");
     }
 

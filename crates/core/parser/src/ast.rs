@@ -74,8 +74,6 @@ pub struct FunctionContract {
     pub name: String,
     pub params: Vec<(String, Type)>,
     pub return_type: Type,
-    pub pre_conditions: Vec<Expr>,
-    pub post_conditions: Vec<Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq, Facet)]
