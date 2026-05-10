@@ -34,12 +34,7 @@ impl<'a> Parser<'a> {
         match &self.current_token {
             Token::LBrace => self.parse_refined_type(),
             Token::Ident(s) => {
-                let base = match s.as_str() {
-                    "Int" => BaseType::Int,
-                    "Bool" => BaseType::Bool,
-                    "Real" => BaseType::Real,
-                    _ => BaseType::Custom(s.clone()),
-                };
+                let base = Self::parse_base_type_name(s);
                 self.advance();
                 Type::Base(base)
             }
@@ -60,12 +55,7 @@ impl<'a> Parser<'a> {
         self.expect(Token::Colon);
         let base = match &self.current_token {
             Token::Ident(s) => {
-                let bt = match s.as_str() {
-                    "Int" => BaseType::Int,
-                    "Bool" => BaseType::Bool,
-                    "Real" => BaseType::Real,
-                    _ => BaseType::Custom(s.clone()),
-                };
+                let bt = Self::parse_base_type_name(s);
                 self.advance();
                 bt
             }
@@ -77,6 +67,21 @@ impl<'a> Parser<'a> {
         self.expect(Token::RBrace);
 
         Type::Refined { base, v, predicate }
+    }
+
+    fn parse_base_type_name(s: &str) -> BaseType {
+        match s {
+            "Int" => BaseType::Int,
+            "Bool" => BaseType::Bool,
+            "Real" => BaseType::Real,
+            _ => BaseType::Custom(s.to_string()),
+        }
+    }
+
+    fn consume_optional_colon(&mut self) {
+        if self.current_token == Token::Colon {
+            self.advance();
+        }
     }
 
     pub fn parse_expr(&mut self) -> Expr {
@@ -306,10 +311,12 @@ impl<'a> Parser<'a> {
             match &self.current_token {
                 Token::Pre => {
                     self.advance();
+                    self.consume_optional_colon();
                     pre_conditions.push(self.parse_expr());
                 }
                 Token::Post => {
                     self.advance();
+                    self.consume_optional_colon();
                     post_conditions.push(self.parse_expr());
                 }
                 _ => break,
@@ -324,15 +331,59 @@ impl<'a> Parser<'a> {
             post_conditions,
         }
     }
+
+    pub fn parse_type_alias(&mut self) -> TypeAlias {
+        self.expect(Token::Type);
+        let name = if let Token::Ident(s) = &self.current_token {
+            let n = s.clone();
+            self.advance();
+            n
+        } else {
+            panic!("Expected type alias name");
+        };
+
+        self.expect(Token::Assign);
+        let ty = self.parse_type();
+        TypeAlias { name, ty }
+    }
+
+    pub fn parse_assertion(&mut self) -> Assertion {
+        self.expect(Token::Assert);
+        self.consume_optional_colon();
+        Assertion {
+            predicate: self.parse_expr(),
+        }
+    }
+
+    pub fn parse_spec_item(&mut self) -> SpecItem {
+        match self.current_token {
+            Token::Fn => SpecItem::FunctionContract(self.parse_function_contract()),
+            Token::Type => SpecItem::TypeAlias(self.parse_type_alias()),
+            Token::Assert => SpecItem::Assertion(self.parse_assertion()),
+            _ => panic!("Unexpected token at top level: {:?}", self.current_token),
+        }
+    }
 }
 
 pub fn parse_spec(input: &str) -> Vec<FunctionContract> {
     let mut parser = Parser::new(input);
     let mut contracts = Vec::new();
     while parser.current_token != Token::EOF {
-        contracts.push(parser.parse_function_contract());
+        match parser.parse_spec_item() {
+            SpecItem::FunctionContract(contract) => contracts.push(contract),
+            SpecItem::TypeAlias(_) | SpecItem::Assertion(_) => {}
+        }
     }
     contracts
+}
+
+pub fn parse_spec_items(input: &str) -> Vec<SpecItem> {
+    let mut parser = Parser::new(input);
+    let mut items = Vec::new();
+    while parser.current_token != Token::EOF {
+        items.push(parser.parse_spec_item());
+    }
+    items
 }
 
 #[cfg(test)]
@@ -382,5 +433,49 @@ mod tests {
         assert_eq!(contract.params[1].0, "y");
         assert_eq!(contract.pre_conditions.len(), 1);
         assert_eq!(contract.post_conditions.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_function_contract_colon_annotations() {
+        let input = "fn div(x: Int, y: { v: Int | v != 0 }) -> { v: Int | v == x / y } @pre: x > 0 @post: v >= 0";
+        let mut parser = Parser::new(input);
+        let contract = parser.parse_function_contract();
+
+        assert_eq!(contract.pre_conditions.len(), 1);
+        assert_eq!(contract.post_conditions.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_type_alias() {
+        let input = "type Nat = { v: Int | v >= 0 }";
+        let mut parser = Parser::new(input);
+        let alias = parser.parse_type_alias();
+
+        assert_eq!(alias.name, "Nat");
+        match alias.ty {
+            Type::Refined { .. } => {}
+            _ => panic!("expected refined type alias"),
+        }
+    }
+
+    #[test]
+    fn test_parse_spec_items_mixed() {
+        let input =
+            "type Nat = { v: Int | v >= 0 } fn inc(x: Nat) -> Nat @post v >= 0 @assert: 1 + 1 == 2";
+        let items = parse_spec_items(input);
+
+        assert_eq!(items.len(), 3);
+        match &items[0] {
+            SpecItem::TypeAlias(alias) => assert_eq!(alias.name, "Nat"),
+            _ => panic!("expected type alias"),
+        }
+        match &items[1] {
+            SpecItem::FunctionContract(contract) => assert_eq!(contract.name, "inc"),
+            _ => panic!("expected function contract"),
+        }
+        match &items[2] {
+            SpecItem::Assertion(_) => {}
+            _ => panic!("expected assertion"),
+        }
     }
 }

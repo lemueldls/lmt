@@ -4,10 +4,15 @@ use anyhow::{Result, anyhow};
 use arborium::{get_language, tree_sitter};
 use facet::Facet;
 
-use crate::{ast::FunctionContract, parser::Parser};
+use crate::{
+    ast::{FunctionContract, SpecItem},
+    parser::Parser,
+};
 
-enum Annotation<'a> {
-    Contract(&'a str),
+enum Annotation {
+    Contract(String),
+    TypeAlias(String),
+    Assert(String),
     Other,
 }
 
@@ -21,12 +26,35 @@ pub struct Mapping {
     pub contract: FunctionContract,
 }
 
+#[derive(Debug, Clone, PartialEq, Facet)]
+pub struct SpecItemMapping {
+    pub target_range: Option<std::ops::Range<usize>>,
+    pub item: SpecItem,
+}
+
 impl StructuralMapper {
     pub fn new() -> Self {
         Self {}
     }
 
     pub fn map_file(&self, path: &Path) -> Result<Vec<Mapping>> {
+        let items = self.map_file_items(path)?;
+        let mut mappings = Vec::new();
+        for item in items {
+            if let (Some(target_range), SpecItem::FunctionContract(contract)) =
+                (item.target_range, item.item)
+            {
+                mappings.push(Mapping {
+                    target_range,
+                    contract,
+                });
+            }
+        }
+
+        Ok(mappings)
+    }
+
+    pub fn map_file_items(&self, path: &Path) -> Result<Vec<SpecItemMapping>> {
         let extension = path
             .extension()
             .and_then(|ext| ext.to_str())
@@ -61,23 +89,33 @@ impl StructuralMapper {
         &self,
         node: tree_sitter::Node<'a>,
         source: &str,
-        mappings: &mut Vec<Mapping>,
+        mappings: &mut Vec<SpecItemMapping>,
     ) {
         if matches!(node.kind(), "comment" | "line_comment" | "block_comment") {
             let text = &source[node.byte_range()];
             if let Some(annotation) = self.extract_annotation(text) {
                 // Find the next significant sibling
-                if let Some(target) = self.find_next_significant_node(node) {
-                    if let Annotation::Contract(spec) = annotation {
-                        let mut parser = Parser::new(spec);
-                        let contract = parser.parse_function_contract();
+                let target_range = self
+                    .find_next_significant_node(node)
+                    .map(|target| target.byte_range());
 
-                        mappings.push(Mapping {
-                            target_range: target.byte_range(),
-                            contract,
-                        });
+                let item = match annotation {
+                    Annotation::Contract(spec) => {
+                        let mut parser = Parser::new(&spec);
+                        SpecItem::FunctionContract(parser.parse_function_contract())
                     }
-                }
+                    Annotation::TypeAlias(spec) => {
+                        let mut parser = Parser::new(&spec);
+                        SpecItem::TypeAlias(parser.parse_type_alias())
+                    }
+                    Annotation::Assert(spec) => {
+                        let mut parser = Parser::new(&spec);
+                        SpecItem::Assertion(parser.parse_assertion())
+                    }
+                    Annotation::Other => return,
+                };
+
+                mappings.push(SpecItemMapping { target_range, item });
             }
         }
 
@@ -92,7 +130,7 @@ impl StructuralMapper {
         }
     }
 
-    fn extract_annotation<'a>(&self, comment: &'a str) -> Option<Annotation<'a>> {
+    fn extract_annotation(&self, comment: &str) -> Option<Annotation> {
         // Look for // l[...] or /* l[...] */
         let trimmed = comment.trim();
 
@@ -109,15 +147,23 @@ impl StructuralMapper {
         }
     }
 
-    fn parse_annotation_payload<'a>(payload: &'a str) -> Annotation<'a> {
+    fn parse_annotation_payload(payload: &str) -> Annotation {
         let payload = payload.trim();
         if let Some(spec) = payload.strip_prefix("contract:") {
-            return Annotation::Contract(spec.trim());
+            return Annotation::Contract(spec.trim().to_string());
+        }
+
+        if let Some(spec) = payload.strip_prefix("type:") {
+            return Annotation::TypeAlias(format!("type {}", spec.trim()));
+        }
+
+        if let Some(spec) = payload.strip_prefix("assert:") {
+            return Annotation::Assert(format!("@assert {}", spec.trim()));
         }
 
         // Backwards-compatible shortcut used in existing tests/fixtures.
         if payload.starts_with("fn ") {
-            return Annotation::Contract(payload);
+            return Annotation::Contract(payload.to_string());
         }
 
         Annotation::Other
@@ -168,15 +214,41 @@ mod tests {
     fn test_parse_contract_annotation_payload() {
         match StructuralMapper::parse_annotation_payload("contract: fn add(x: Int) -> Int") {
             Annotation::Contract(spec) => assert!(spec.starts_with("fn add")),
-            Annotation::Other => panic!("expected contract annotation"),
+            Annotation::TypeAlias(_) | Annotation::Assert(_) | Annotation::Other => {
+                panic!("expected contract annotation")
+            }
         }
     }
 
     #[test]
     fn test_parse_non_contract_annotation_payload() {
         match StructuralMapper::parse_annotation_payload("type: Nat = { v: Int | v >= 0 }") {
-            Annotation::Contract(_) => panic!("expected non-contract annotation"),
-            Annotation::Other => {}
+            Annotation::Contract(_) => panic!("expected type annotation"),
+            Annotation::TypeAlias(spec) => assert_eq!(spec, "type Nat = { v: Int | v >= 0 }"),
+            Annotation::Assert(_) | Annotation::Other => panic!("expected type annotation"),
+        }
+    }
+
+    #[test]
+    fn test_parse_assert_annotation_payload() {
+        match StructuralMapper::parse_annotation_payload("assert: x > 0") {
+            Annotation::Assert(spec) => assert_eq!(spec, "@assert x > 0"),
+            Annotation::Contract(_) | Annotation::TypeAlias(_) | Annotation::Other => {
+                panic!("expected assert annotation")
+            }
+        }
+    }
+
+    #[test]
+    fn test_map_file_items_includes_type_alias() {
+        let mapper = StructuralMapper::new();
+        let path = Path::new("tests/fixtures/contract_prefix.rs");
+        let mappings = mapper.map_file_items(path).unwrap();
+
+        assert_eq!(mappings.len(), 2);
+        match &mappings[1].item {
+            SpecItem::TypeAlias(alias) => assert_eq!(alias.name, "Nat"),
+            _ => panic!("expected type alias item"),
         }
     }
 }

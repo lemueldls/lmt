@@ -22,8 +22,9 @@ pub enum Token {
     Arrow,  // ->
 
     // Annotations
-    Pre,  // @pre
-    Post, // @post
+    Pre,    // @pre
+    Post,   // @post
+    Assert, // @assert
 
     // Operators
     And,     // &&
@@ -31,12 +32,13 @@ pub enum Token {
     Not,     // !
     Implies, // =>
 
-    Eq, // ==
-    Ne, // !=
-    Lt, // <
-    Le, // <=
-    Gt, // >
-    Ge, // >=
+    Eq,     // ==
+    Assign, // =
+    Ne,     // !=
+    Lt,     // <
+    Le,     // <=
+    Gt,     // >
+    Ge,     // >=
 
     Plus,  // +
     Minus, // -
@@ -113,7 +115,7 @@ impl<'a> Lexer<'a> {
                     self.input.next();
                     Token::Implies
                 } else {
-                    panic!("Expected == or =>")
+                    Token::Assign
                 }
             }
             Some('<') => {
@@ -205,6 +207,7 @@ impl<'a> Lexer<'a> {
         match s.as_str() {
             "pre" => Token::Pre,
             "post" => Token::Post,
+            "assert" => Token::Assert,
             _ => panic!("Unknown annotation: @{}", s),
         }
     }
@@ -216,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_lexer_basic() {
-        let input = "fn type { } | : , -> @pre @post && || ! => == != < <= > >= + - * / ident 123 45.6 true false";
+        let input = "fn type { } | : , -> @pre @post @assert && || ! => == = != < <= > >= + - * / ident 123 45.6 true false";
         let mut lexer = Lexer::new(input);
 
         assert_eq!(lexer.next_token(), Token::Fn);
@@ -229,11 +232,13 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Arrow);
         assert_eq!(lexer.next_token(), Token::Pre);
         assert_eq!(lexer.next_token(), Token::Post);
+        assert_eq!(lexer.next_token(), Token::Assert);
         assert_eq!(lexer.next_token(), Token::And);
         assert_eq!(lexer.next_token(), Token::Or);
         assert_eq!(lexer.next_token(), Token::Not);
         assert_eq!(lexer.next_token(), Token::Implies);
         assert_eq!(lexer.next_token(), Token::Eq);
+        assert_eq!(lexer.next_token(), Token::Assign);
         assert_eq!(lexer.next_token(), Token::Ne);
         assert_eq!(lexer.next_token(), Token::Lt);
         assert_eq!(lexer.next_token(), Token::Le);

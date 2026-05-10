@@ -77,3 +77,22 @@ pub struct FunctionContract {
     pub pre_conditions: Vec<Expr>,
     pub post_conditions: Vec<Expr>,
 }
+
+#[derive(Debug, Clone, PartialEq, Facet)]
+pub struct TypeAlias {
+    pub name: String,
+    pub ty: Type,
+}
+
+#[derive(Debug, Clone, PartialEq, Facet)]
+pub struct Assertion {
+    pub predicate: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
+pub enum SpecItem {
+    FunctionContract(FunctionContract),
+    TypeAlias(TypeAlias),
+    Assertion(Assertion),
+}

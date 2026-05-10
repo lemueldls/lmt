@@ -3,5 +3,6 @@ pub mod lexer;
 pub mod mapping;
 pub mod parser;
 
-pub use mapping::StructuralMapper;
-pub use parser::parse_spec;
+pub use ast::SpecItem;
+pub use mapping::{SpecItemMapping, StructuralMapper};
+pub use parser::{parse_spec, parse_spec_items};
