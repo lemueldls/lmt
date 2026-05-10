@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use facet::Facet;
 use figue::{self as args, FigueBuiltins};
 use lmt_checker::check_path;

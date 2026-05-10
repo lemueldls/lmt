@@ -3,6 +3,7 @@ use crate::{
     lexer::{Lexer, Token},
 };
 
+#[derive(Clone)]
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token,
@@ -208,7 +209,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_relational(&mut self) -> Expr {
-        let mut left = self.parse_additive();
+        let mut left = self.parse_list_expr();
         loop {
             let op = match &self.current_token {
                 Token::Lt => BinOp::Lt,
@@ -222,6 +223,21 @@ impl<'a> Parser<'a> {
             left = Expr::Binary {
                 left: Box::new(left),
                 op,
+                right: Box::new(right),
+            };
+        }
+        left
+    }
+
+    fn parse_list_expr(&mut self) -> Expr {
+        let mut left = self.parse_additive();
+        if self.current_token == Token::Cons {
+            // right-associative
+            self.advance();
+            let right = self.parse_list_expr();
+            left = Expr::Binary {
+                left: Box::new(left),
+                op: BinOp::Cons,
                 right: Box::new(right),
             };
         }
@@ -286,6 +302,87 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_postfix(&mut self, mut expr: Expr) -> Expr {
+        loop {
+            if self.current_token == Token::LParen {
+                self.advance();
+                let mut args = Vec::new();
+                if self.current_token != Token::RParen {
+                    args.push(self.parse_expr());
+                    while self.current_token == Token::Comma {
+                        self.advance();
+                        args.push(self.parse_expr());
+                    }
+                }
+                self.expect(Token::RParen);
+                expr = Expr::App {
+                    func: Box::new(expr),
+                    args,
+                };
+            } else {
+                break;
+            }
+        }
+        expr
+    }
+
+    fn parse_lambda_params(&mut self) -> Option<Vec<(String, Option<Type>)>> {
+        let mut params = Vec::new();
+
+        if self.current_token == Token::RParen {
+            self.advance();
+            return Some(params);
+        }
+
+        loop {
+            let name = if let Token::Ident(s) = &self.current_token {
+                let n = s.clone();
+                self.advance();
+                n
+            } else {
+                return None;
+            };
+
+            let ty = if self.current_token == Token::Colon {
+                self.advance();
+                Some(self.parse_type())
+            } else {
+                None
+            };
+
+            params.push((name, ty));
+
+            match self.current_token {
+                Token::Comma => {
+                    self.advance();
+                }
+                Token::RParen => {
+                    self.advance();
+                    return Some(params);
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    fn try_parse_lambda_in_parens(&self) -> Option<(Parser<'a>, Expr)> {
+        let mut tentative = self.clone();
+        tentative.advance();
+        let params = tentative.parse_lambda_params()?;
+
+        if tentative.current_token != Token::Implies {
+            return None;
+        }
+
+        tentative.advance();
+        let body = tentative.parse_expr();
+
+        Some((tentative, Expr::Lambda {
+            params,
+            body: Box::new(body),
+        }))
+    }
+
     fn parse_primary(&mut self) -> Expr {
         match self.current_token.clone() {
             Token::Int(n) => {
@@ -305,16 +402,151 @@ impl<'a> Parser<'a> {
                 Expr::Literal(Lit::Bool(false))
             }
             Token::Ident(s) => {
+                if s == "match" {
+                    self.advance();
+                    let expr = self.parse_expr();
+                    if let Token::Ident(w) = &self.current_token {
+                        if w == "with" {
+                            self.advance();
+                        } else {
+                            panic!("Expected 'with' after match");
+                        }
+                    } else {
+                        panic!("Expected 'with' after match");
+                    }
+
+                    let mut arms = Vec::new();
+                    while self.current_token == Token::Pipe {
+                        self.advance();
+                        let pat = self.parse_pattern();
+                        self.expect(Token::Implies);
+                        let arm_expr = self.parse_expr();
+                        arms.push((pat, arm_expr));
+                    }
+                    return self.parse_postfix(Expr::Match {
+                        expr: Box::new(expr),
+                        arms,
+                    });
+                }
+
                 self.advance();
-                Expr::Var(s)
+                if self.current_token == Token::Implies {
+                    self.advance();
+                    let body = self.parse_expr();
+                    return self.parse_postfix(Expr::Lambda {
+                        params: vec![(s, None)],
+                        body: Box::new(body),
+                    });
+                }
+
+                if self.current_token == Token::Colon {
+                    self.advance();
+                    let ty = self.parse_type();
+                    self.expect(Token::Implies);
+                    let body = self.parse_expr();
+
+                    return self.parse_postfix(Expr::Lambda {
+                        params: vec![(s, Some(ty))],
+                        body: Box::new(body),
+                    });
+                }
+
+                self.parse_postfix(Expr::Var(s))
+            }
+            Token::LParen => {
+                if let Some((updated, lambda)) = self.try_parse_lambda_in_parens() {
+                    *self = updated;
+                    return self.parse_postfix(lambda);
+                }
+
+                self.advance();
+                let first = self.parse_expr();
+                if self.current_token == Token::Comma {
+                    let mut elems = vec![first];
+                    while self.current_token == Token::Comma {
+                        self.advance();
+                        elems.push(self.parse_expr());
+                    }
+                    self.expect(Token::RParen);
+                    Expr::Tuple(elems)
+                } else {
+                    self.expect(Token::RParen);
+                    first
+                }
+            }
+            Token::LBracket => {
+                self.advance();
+                let mut elems = Vec::new();
+                if self.current_token != Token::RBracket {
+                    elems.push(self.parse_expr());
+                    while self.current_token == Token::Comma {
+                        self.advance();
+                        elems.push(self.parse_expr());
+                    }
+                }
+                self.expect(Token::RBracket);
+                Expr::List(elems)
+            }
+            _ => panic!("Unexpected token in primary: {:?}", self.current_token),
+        }
+    }
+
+    fn parse_pattern(&mut self) -> Pattern {
+        match self.current_token.clone() {
+            Token::Ident(s) => {
+                self.advance();
+                if s == "_" {
+                    Pattern::Wild
+                } else {
+                    Pattern::Var(s)
+                }
+            }
+            Token::Int(n) => {
+                self.advance();
+                Pattern::Literal(Lit::Int(n))
+            }
+            Token::Real(n) => {
+                self.advance();
+                Pattern::Literal(Lit::Real(n))
+            }
+            Token::True => {
+                self.advance();
+                Pattern::Literal(Lit::Bool(true))
+            }
+            Token::False => {
+                self.advance();
+                Pattern::Literal(Lit::Bool(false))
             }
             Token::LParen => {
                 self.advance();
-                let expr = self.parse_expr();
-                self.expect(Token::RParen);
-                expr
+                let first = self.parse_pattern();
+                if self.current_token == Token::Comma {
+                    let mut elems = vec![first];
+                    while self.current_token == Token::Comma {
+                        self.advance();
+                        elems.push(self.parse_pattern());
+                    }
+                    self.expect(Token::RParen);
+                    Pattern::Tuple(elems)
+                } else {
+                    self.expect(Token::RParen);
+                    first
+                }
             }
-            _ => panic!("Unexpected token in primary: {:?}", self.current_token),
+            Token::LBracket => {
+                self.advance();
+                let mut elems = Vec::new();
+                if self.current_token != Token::RBracket {
+                    elems.push(self.parse_pattern());
+                    while self.current_token == Token::Comma {
+                        self.advance();
+                        elems.push(self.parse_pattern());
+                    }
+                }
+                self.expect(Token::RBracket);
+                Pattern::List(elems)
+            }
+            _ => panic!("Unexpected token in pattern: {:?}", self.current_token),
         }
     }
 
@@ -508,6 +740,28 @@ mod tests {
         match &items[2] {
             SpecItem::Assertion(_) => {}
             _ => panic!("expected assertion"),
+        }
+    }
+
+    #[test]
+    fn test_parse_typed_lambda_params() {
+        let input = "(x: Int, y: Bool) => x";
+        let mut parser = Parser::new(input);
+        let expr = parser.parse_expr();
+
+        match expr {
+            Expr::Lambda { params, body } => {
+                assert_eq!(params.len(), 2);
+                assert_eq!(params[0].0, "x");
+                assert_eq!(params[1].0, "y");
+                assert!(params[0].1.is_some());
+                assert!(params[1].1.is_some());
+                match *body {
+                    Expr::Var(name) => assert_eq!(name, "x"),
+                    _ => panic!("expected lambda body to be a variable"),
+                }
+            }
+            _ => panic!("expected lambda expression"),
         }
     }
 }

@@ -15,6 +15,8 @@ pub enum Token {
     RBrace, // }
     LParen, // (
     RParen, // )
+    LBracket, // [
+    RBracket, // ]
     Pipe,   // |
     Colon,  // :
     Semi,   // ;
@@ -42,6 +44,7 @@ pub enum Token {
     Minus, // -
     Star,  // *
     Slash, // /
+    Cons, // ::
 
     // Literals and Identifiers
     Ident(String),
@@ -51,6 +54,7 @@ pub enum Token {
     EOF,
 }
 
+#[derive(Clone)]
 pub struct Lexer<'a> {
     input: Peekable<Chars<'a>>,
 }
@@ -78,7 +82,16 @@ impl<'a> Lexer<'a> {
                     Token::Pipe
                 }
             }
-            Some(':') => Token::Colon,
+            Some('[') => Token::LBracket,
+            Some(']') => Token::RBracket,
+            Some(':') => {
+                if let Some(':') = self.input.peek() {
+                    self.input.next();
+                    Token::Cons
+                } else {
+                    Token::Colon
+                }
+            }
             Some(',') => Token::Comma,
             Some(';') => Token::Semi,
             Some('-') => {

@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use cvc5_rs::{Term, TermManager};
 use lmt_parser::{
     SpecItem,
-    ast::{Assertion, Expr, FunctionContract, Type, TypeAlias},
+    ast::{Assertion, Expr, FunctionContract, Pattern, Type, TypeAlias},
 };
 
 use crate::{
@@ -149,6 +149,48 @@ fn substitute_var(expr: &Expr, from: &str, to: &str) -> Expr {
                 right: Box::new(substitute_var(right, from, to)),
             }
         }
+        Expr::Tuple(elems) => {
+            Expr::Tuple(elems.iter().map(|e| substitute_var(e, from, to)).collect())
+        }
+        Expr::List(elems) => {
+            Expr::List(elems.iter().map(|e| substitute_var(e, from, to)).collect())
+        }
+        Expr::App { func, args } => {
+            Expr::App {
+                func: Box::new(substitute_var(func, from, to)),
+                args: args.iter().map(|a| substitute_var(a, from, to)).collect(),
+            }
+        }
+        Expr::Lambda { params, body } => {
+            // if lambda shadows `from`, do not substitute in body
+            let shadows = params.iter().any(|(n, _)| n == from);
+            if shadows {
+                Expr::Lambda {
+                    params: params.clone(),
+                    body: body.clone(),
+                }
+            } else {
+                Expr::Lambda {
+                    params: params.clone(),
+                    body: Box::new(substitute_var(body, from, to)),
+                }
+            }
+        }
+        Expr::Match { expr, arms } => {
+            Expr::Match {
+                expr: Box::new(substitute_var(expr, from, to)),
+                arms: arms
+                    .iter()
+                    .map(|(p, e)| {
+                        if pattern_binds(p, from) {
+                            (p.clone(), e.clone())
+                        } else {
+                            (p.clone(), substitute_var(e, from, to))
+                        }
+                    })
+                    .collect(),
+            }
+        }
         Expr::Let {
             name,
             ty,
@@ -166,6 +208,17 @@ fn substitute_var(expr: &Expr, from: &str, to: &str) -> Expr {
                 },
             }
         }
+    }
+}
+
+fn pattern_binds(pattern: &Pattern, name: &str) -> bool {
+    match pattern {
+        Pattern::Wild | Pattern::Literal(_) => false,
+        Pattern::Var(bound) => bound == name,
+        Pattern::Tuple(items) | Pattern::List(items) => {
+            items.iter().any(|item| pattern_binds(item, name))
+        }
+        Pattern::Cons(left, right) => pattern_binds(left, name) || pattern_binds(right, name),
     }
 }
 

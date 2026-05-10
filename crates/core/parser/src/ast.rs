@@ -34,6 +34,20 @@ pub enum Expr {
     },
     Literal(Lit),
     Var(String),
+    Tuple(Vec<Expr>),
+    List(Vec<Expr>),
+    App {
+        func: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Lambda {
+        params: Vec<(String, Option<Type>)>,
+        body: Box<Expr>,
+    },
+    Match {
+        expr: Box<Expr>,
+        arms: Vec<(Pattern, Expr)>,
+    },
     Let {
         name: String,
         ty: Option<Box<Type>>,
@@ -58,6 +72,7 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+    Cons,
 }
 
 #[derive(Debug, Clone, PartialEq, Facet)]
@@ -73,6 +88,17 @@ pub enum Lit {
     Int(i64),
     Bool(bool),
     Real(f64),
+}
+
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[repr(u8)]
+pub enum Pattern {
+    Wild,
+    Var(String),
+    Literal(Lit),
+    Tuple(Vec<Pattern>),
+    List(Vec<Pattern>),
+    Cons(Box<Pattern>, Box<Pattern>),
 }
 
 #[derive(Debug, Clone, PartialEq, Facet)]
