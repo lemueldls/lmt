@@ -7,7 +7,7 @@ mod solver;
 use std::path::Path;
 
 use anyhow::Context;
-use lmt_parser::{SpecItem, StructuralMapper, parser::Parser};
+use lmt_parser::{StructuralMapper, parser::Parser};
 
 pub fn check_simple_arithmetic() -> Result<()> {
     let tm = TermManager::new();
@@ -68,15 +68,35 @@ fn check_file(path: &Path) -> Result<()> {
         .map_file_items(path)
         .with_context(|| format!("failed to map file {}", path.display()))?;
 
+    let mut env = refinement::VerificationEnv::new();
+
     for mapping in mappings {
-        if let SpecItem::FunctionContract(contract) = mapping.item {
-            refinement::check_contract_consistency(&contract).with_context(|| {
-                format!("contract `{}` failed in {}", contract.name, path.display())
-            })?;
-        }
+        refinement::check_spec_item(&mapping.item, &mut env).with_context(|| {
+            let location = mapping
+                .target_range
+                .as_ref()
+                .map(|range| format!("bytes {}..{}", range.start, range.end))
+                .unwrap_or_else(|| "top-level item".to_string());
+            format!(
+                "verification failed for {} in {} ({})",
+                location,
+                path.display(),
+                item_summary(&mapping.item)
+            )
+        })?;
     }
 
     Ok(())
+}
+
+fn item_summary(item: &lmt_parser::SpecItem) -> String {
+    match item {
+        lmt_parser::SpecItem::TypeAlias(alias) => format!("type alias `{}`", alias.name),
+        lmt_parser::SpecItem::FunctionContract(contract) => {
+            format!("function contract `{}`", contract.name)
+        }
+        lmt_parser::SpecItem::Assertion(_) => "assertion".to_string(),
+    }
 }
 
 fn collect_supported_files(root: &Path) -> Result<Vec<std::path::PathBuf>> {

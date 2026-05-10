@@ -1,48 +1,138 @@
-use anyhow::{Result, anyhow};
-use cvc5_rs::{Solver, TermManager};
-use lmt_parser::ast::{Expr, FunctionContract, Type};
+use std::collections::HashMap;
 
-use crate::{expr_conv::expr_to_term, solver::SolverEnv};
+use anyhow::{Result, anyhow};
+use cvc5_rs::{Term, TermManager};
+use lmt_parser::{
+    SpecItem,
+    ast::{Assertion, Expr, FunctionContract, Type, TypeAlias},
+};
+
+use crate::{
+    expr_conv::expr_to_term,
+    solver::{self, SolverEnv},
+};
+
+#[derive(Debug, Default)]
+pub struct VerificationEnv {
+    facts: Vec<Expr>,
+    aliases: HashMap<String, TypeAlias>,
+}
+
+impl VerificationEnv {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn facts(&self) -> &[Expr] {
+        &self.facts
+    }
+
+    pub fn add_fact(&mut self, fact: Expr) {
+        self.facts.push(fact);
+    }
+
+    pub fn insert_alias(&mut self, alias: TypeAlias) {
+        self.aliases.insert(alias.name.clone(), alias);
+    }
+}
+
+pub fn check_spec_item(item: &SpecItem, env: &mut VerificationEnv) -> Result<()> {
+    match item {
+        SpecItem::TypeAlias(alias) => {
+            check_type_alias_consistency(alias)?;
+            env.insert_alias(alias.clone());
+            Ok(())
+        }
+        SpecItem::FunctionContract(contract) => check_contract_consistency_with_env(contract, env),
+        SpecItem::Assertion(assertion) => {
+            check_assertion(assertion, env)?;
+            env.add_fact(assertion.predicate.clone());
+            Ok(())
+        }
+    }
+}
 
 pub fn check_contract_consistency(contract: &FunctionContract) -> Result<()> {
-    let tm = TermManager::new();
-    let mut solver = Solver::new(&tm);
-    solver.set_logic("ALL");
+    let env = VerificationEnv::new();
+    check_contract_consistency_with_env(contract, &env)
+}
 
-    let mut env = SolverEnv::new();
+fn check_contract_consistency_with_env(
+    contract: &FunctionContract,
+    env: &VerificationEnv,
+) -> Result<()> {
+    let tm = TermManager::new();
+    let mut solver_env = SolverEnv::new();
+    let mut assumptions: Vec<Term> = Vec::new();
 
     for (name, ty) in &contract.params {
-        env.insert_var_from_type(&tm, name, ty);
+        solver_env.insert_var_from_type(&tm, name, ty);
         if let Type::Refined { v, predicate, .. } = ty {
             let pred = substitute_var(predicate, v, name);
-            solver.assert_formula(expr_to_term(&tm, &pred, env.vars())?);
+            let pred_term = expr_to_term(&tm, &pred, solver_env.vars())?;
+            assumptions.push(pred_term);
         }
     }
 
-    // Introduce canonical return variable `v` for postconditions and refined return type.
-    env.insert_var_from_type(&tm, "v", &contract.return_type);
+    solver_env.insert_var_from_type(&tm, "v", &contract.return_type);
+
+    for fact in env.facts() {
+        assumptions.push(expr_to_term(&tm, fact, solver_env.vars())?);
+    }
 
     for pre in &contract.pre_conditions {
-        solver.assert_formula(expr_to_term(&tm, pre, env.vars())?);
+        assumptions.push(expr_to_term(&tm, pre, solver_env.vars())?);
     }
 
     if let Type::Refined { v, predicate, .. } = &contract.return_type {
         let pred = substitute_var(predicate, v, "v");
-        solver.assert_formula(expr_to_term(&tm, &pred, env.vars())?);
+        assumptions.push(expr_to_term(&tm, &pred, solver_env.vars())?);
     }
 
     for post in &contract.post_conditions {
-        solver.assert_formula(expr_to_term(&tm, post, env.vars())?);
+        assumptions.push(expr_to_term(&tm, post, solver_env.vars())?);
     }
 
-    let sat = solver.check_sat();
-    if sat.is_sat() {
+    if solver::is_satisfiable(&tm, &assumptions)? {
         Ok(())
     } else {
         Err(anyhow!(
             "contract `{}` has inconsistent refinements/pre/post conditions",
             contract.name
         ))
+    }
+}
+
+fn check_type_alias_consistency(alias: &TypeAlias) -> Result<()> {
+    if let Type::Refined { v, predicate, .. } = &alias.ty {
+        let tm = TermManager::new();
+        let mut solver_env = SolverEnv::new();
+        solver_env.insert_var_from_type(&tm, v, &alias.ty);
+        let predicate_term = expr_to_term(&tm, predicate, solver_env.vars())?;
+        if solver::is_satisfiable(&tm, &[predicate_term])? {
+            Ok(())
+        } else {
+            Err(anyhow!("type alias `{}` is inconsistent", alias.name))
+        }
+    } else {
+        Ok(())
+    }
+}
+
+fn check_assertion(assertion: &Assertion, env: &VerificationEnv) -> Result<()> {
+    let tm = TermManager::new();
+    let solver_env = SolverEnv::new();
+    let assumptions: Vec<Term> = env
+        .facts()
+        .iter()
+        .map(|fact| expr_to_term(&tm, fact, solver_env.vars()))
+        .collect::<Result<Vec<_>>>()?;
+    let goal = expr_to_term(&tm, &assertion.predicate, solver_env.vars())?;
+
+    if solver::proves(&tm, &assumptions, &goal)? {
+        Ok(())
+    } else {
+        Err(anyhow!("assertion is not provable"))
     }
 }
 
@@ -69,7 +159,7 @@ fn substitute_var(expr: &Expr, from: &str, to: &str) -> Expr {
 
 #[cfg(test)]
 mod tests {
-    use lmt_parser::parser::Parser;
+    use lmt_parser::{SpecItem, parser::Parser};
 
     use super::*;
 
@@ -88,5 +178,22 @@ mod tests {
         let contract = parser.parse_function_contract();
         let result = check_contract_consistency(&contract);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_check_assertion_in_sequence() {
+        let mut env = VerificationEnv::new();
+        let mut parser = Parser::new("@assert 1 + 1 == 2");
+        let item = SpecItem::Assertion(parser.parse_assertion());
+        check_spec_item(&item, &mut env).expect("assertion should verify");
+        assert_eq!(env.facts().len(), 1);
+    }
+
+    #[test]
+    fn test_check_bad_assertion_fails() {
+        let mut env = VerificationEnv::new();
+        let mut parser = Parser::new("@assert 1 < 0");
+        let item = SpecItem::Assertion(parser.parse_assertion());
+        assert!(check_spec_item(&item, &mut env).is_err());
     }
 }
