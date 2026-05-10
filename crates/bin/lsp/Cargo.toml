@@ -4,8 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-lmt-parser = { path = "../../core/parser" }
-lmt-checker = { path = "../../core/checker" }
 anyhow.workspace = true
 tokio.workspace = true
 tower-lsp = "0.20"
+
+lmt-checker = { path = "../../core/checker" }
+lmt-parser = { path = "../../core/parser" }

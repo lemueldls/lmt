@@ -1,13 +1,18 @@
 [package]
 name = "lmt-cli"
-default-run = "lmt-cli"
+default-run = "lmt"
 version.workspace = true
 edition.workspace = true
 
+[[bin]]
+name = "lmt"
+path = "src/main.rs"
+
 [dependencies]
-lmt-parser = { path = "../../core/parser" }
-lmt-checker = { path = "../../core/checker" }
-figue.workspace = true
-facet.workspace = true
 anyhow.workspace = true
+facet.workspace = true
+figue.workspace = true
 tokio.workspace = true
+
+lmt-checker = { path = "../../core/checker" }
+lmt-parser = { path = "../../core/parser" }

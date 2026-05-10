@@ -6,7 +6,7 @@ use facet::Facet;
 
 use crate::{
     ast::{FunctionContract, SpecItem},
-    parser::Parser,
+    parser::{Parser, parse_spec_items},
 };
 
 enum Annotation {
@@ -59,6 +59,19 @@ impl StructuralMapper {
             .extension()
             .and_then(|ext| ext.to_str())
             .ok_or_else(|| anyhow!("No extension for file {:?}", path))?;
+
+        if extension == "lmt" {
+            let source = std::fs::read_to_string(path)?;
+            return Ok(parse_spec_items(&source)
+                .into_iter()
+                .map(|item| {
+                    SpecItemMapping {
+                        target_range: None,
+                        item,
+                    }
+                })
+                .collect());
+        }
 
         let lang_name = match extension {
             "rs" => "rust",
@@ -261,5 +274,22 @@ mod tests {
             SpecItem::TypeAlias(alias) => assert_eq!(alias.name, "Nat"),
             _ => panic!("expected type alias item"),
         }
+    }
+
+    #[test]
+    fn test_map_file_items_lmt_program() {
+        let mapper = StructuralMapper::new();
+        let path = Path::new("tests/fixtures/simple.lmt");
+        let mappings = mapper.map_file_items(path).unwrap();
+
+        assert_eq!(mappings.len(), 3);
+        assert!(
+            mappings
+                .iter()
+                .all(|mapping| mapping.target_range.is_none())
+        );
+        assert!(matches!(mappings[0].item, SpecItem::TypeAlias(_)));
+        assert!(matches!(mappings[1].item, SpecItem::FunctionContract(_)));
+        assert!(matches!(mappings[2].item, SpecItem::Assertion(_)));
     }
 }

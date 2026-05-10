@@ -7,7 +7,7 @@ mod solver;
 use std::path::Path;
 
 use anyhow::Context;
-use lmt_parser::{StructuralMapper, parser::Parser};
+use lmt_parser::{SpecItem, StructuralMapper, parser::Parser};
 
 pub fn check_simple_arithmetic() -> Result<()> {
     let tm = TermManager::new();
@@ -65,17 +65,15 @@ pub fn check_contract_spec(spec: &str) -> Result<()> {
 fn check_file(path: &Path) -> Result<()> {
     let mapper = StructuralMapper::new();
     let mappings = mapper
-        .map_file(path)
+        .map_file_items(path)
         .with_context(|| format!("failed to map file {}", path.display()))?;
 
     for mapping in mappings {
-        refinement::check_contract_consistency(&mapping.contract).with_context(|| {
-            format!(
-                "contract `{}` failed in {}",
-                mapping.contract.name,
-                path.display()
-            )
-        })?;
+        if let SpecItem::FunctionContract(contract) = mapping.item {
+            refinement::check_contract_consistency(&contract).with_context(|| {
+                format!("contract `{}` failed in {}", contract.name, path.display())
+            })?;
+        }
     }
 
     Ok(())
@@ -104,7 +102,7 @@ fn collect_supported_files_impl(dir: &Path, out: &mut Vec<std::path::PathBuf>) -
 fn is_supported_source_file(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|e| e.to_str()),
-        Some("rs" | "py" | "js" | "ts")
+        Some("rs" | "py" | "js" | "ts" | "lmt")
     )
 }
 
@@ -133,5 +131,12 @@ mod tests {
     fn test_check_contract_spec_ok() {
         let spec = "fn id_pos(x: { v: Int | v > 0 }) -> { v: Int | v > 0 } @post v > 0";
         check_contract_spec(spec).expect("expected consistent contract");
+    }
+
+    #[test]
+    fn test_check_path_lmt_program() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../parser/tests/fixtures/simple.lmt");
+        check_path(path.to_str().expect("valid path")).expect("expected lmt program to check");
     }
 }

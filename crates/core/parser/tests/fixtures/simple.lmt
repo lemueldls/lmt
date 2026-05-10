@@ -1,0 +1,3 @@
+type Nat = { v: Int | v >= 0 }
+fn inc(x: Int) -> Int @post v >= 0
+@assert 1 + 1 == 2

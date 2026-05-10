@@ -4,7 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-lmt-parser = { path = "../parser" }
-cvc5-rs.workspace = true
 anyhow.workspace = true
+cvc5-rs.workspace = true
 thiserror.workspace = true
+
+lmt-parser = { path = "../parser" }
