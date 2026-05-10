@@ -149,21 +149,16 @@ impl StructuralMapper {
 
     fn parse_annotation_payload(payload: &str) -> Annotation {
         let payload = payload.trim();
-        if let Some(spec) = payload.strip_prefix("contract:") {
-            return Annotation::Contract(spec.trim().to_string());
-        }
-
-        if let Some(spec) = payload.strip_prefix("type:") {
-            return Annotation::TypeAlias(format!("type {}", spec.trim()));
-        }
-
-        if let Some(spec) = payload.strip_prefix("assert:") {
-            return Annotation::Assert(format!("@assert {}", spec.trim()));
-        }
-
-        // Backwards-compatible shortcut used in existing tests/fixtures.
         if payload.starts_with("fn ") {
             return Annotation::Contract(payload.to_string());
+        }
+
+        if payload.starts_with("type ") {
+            return Annotation::TypeAlias(payload.to_string());
+        }
+
+        if payload.starts_with("@assert") {
+            return Annotation::Assert(payload.to_string());
         }
 
         Annotation::Other
@@ -201,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mapping_rust_contract_prefix() {
+    fn test_mapping_rust_contract_payload() {
         let mapper = StructuralMapper::new();
         let path = Path::new("tests/fixtures/contract_prefix.rs");
         let mappings = mapper.map_file(path).unwrap();
@@ -211,8 +206,8 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_contract_annotation_payload() {
-        match StructuralMapper::parse_annotation_payload("contract: fn add(x: Int) -> Int") {
+    fn test_parse_fn_annotation_payload() {
+        match StructuralMapper::parse_annotation_payload("fn add(x: Int) -> Int") {
             Annotation::Contract(spec) => assert!(spec.starts_with("fn add")),
             Annotation::TypeAlias(_) | Annotation::Assert(_) | Annotation::Other => {
                 panic!("expected contract annotation")
@@ -221,8 +216,8 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_non_contract_annotation_payload() {
-        match StructuralMapper::parse_annotation_payload("type: Nat = { v: Int | v >= 0 }") {
+    fn test_parse_type_annotation_payload() {
+        match StructuralMapper::parse_annotation_payload("type Nat = { v: Int | v >= 0 }") {
             Annotation::Contract(_) => panic!("expected type annotation"),
             Annotation::TypeAlias(spec) => assert_eq!(spec, "type Nat = { v: Int | v >= 0 }"),
             Annotation::Assert(_) | Annotation::Other => panic!("expected type annotation"),
@@ -231,12 +226,28 @@ mod tests {
 
     #[test]
     fn test_parse_assert_annotation_payload() {
-        match StructuralMapper::parse_annotation_payload("assert: x > 0") {
+        match StructuralMapper::parse_annotation_payload("@assert x > 0") {
             Annotation::Assert(spec) => assert_eq!(spec, "@assert x > 0"),
             Annotation::Contract(_) | Annotation::TypeAlias(_) | Annotation::Other => {
                 panic!("expected assert annotation")
             }
         }
+    }
+
+    #[test]
+    fn test_legacy_prefix_payloads_are_ignored() {
+        assert!(matches!(
+            StructuralMapper::parse_annotation_payload("contract: fn add(x: Int) -> Int"),
+            Annotation::Other
+        ));
+        assert!(matches!(
+            StructuralMapper::parse_annotation_payload("type: Nat = { v: Int | v >= 0 }"),
+            Annotation::Other
+        ));
+        assert!(matches!(
+            StructuralMapper::parse_annotation_payload("assert: x > 0"),
+            Annotation::Other
+        ));
     }
 
     #[test]
