@@ -1,0 +1,16 @@
+[package]
+name = "tree-sitter-lmt"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+rust-sitter.workspace = true
+rust-sitter-common.workspace = true
+rust-sitter-macro.workspace = true
+
+[build-dependencies]
+rust-sitter-tool.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+wasm-bindgen-test.workspace = true

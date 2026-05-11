@@ -1,8 +1,8 @@
 [package]
 name = "lmt-cli"
 default-run = "lmt"
-version.workspace = true
 edition.workspace = true
+version.workspace = true
 
 [[bin]]
 name = "lmt"

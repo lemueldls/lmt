@@ -1,7 +1,7 @@
 [package]
 name = "lmt-lsp"
-version.workspace = true
 edition.workspace = true
+version.workspace = true
 
 [dependencies]
 anyhow.workspace = true

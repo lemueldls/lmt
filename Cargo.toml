@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/bin/*", "crates/core/*"]
+members = ["crates/bin/*", "crates/core/*", "crates/tree-sitter"]
 package.edition = "2024"
 package.version = "0.1.0-alpha.0"
 resolver = "3"
@@ -11,10 +11,15 @@ arborium = { version = "2.17.0", default-features = true, features = [
   "lang-javascript",
   "lang-typescript",
 ] }
-# tracey = { version = "1.3.0" }
 figue = { version = "4.0.1" }
 facet = { version = "0.46.0" }
 cvc5-rs = { version = "0.3.2" }
 anyhow = { version = "1.0" }
 thiserror = { version = "2.0" }
 tokio = { version = "1", features = ["full"] }
+rust-sitter = { version = "=0.4.1" }
+rust-sitter-tool = { version = "=0.4.1" }
+rust-sitter-macro = { version = "=0.4.1" }
+rust-sitter-common = { version = "=0.4.1" }
+insta = { version = "1.47.2" }
+wasm-bindgen-test = { version = "0.3" }
