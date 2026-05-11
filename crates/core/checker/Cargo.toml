@@ -6,6 +6,8 @@ version.workspace = true
 [dependencies]
 anyhow.workspace = true
 cvc5-rs.workspace = true
+parking_lot.workspace = true
 thiserror.workspace = true
 
+lmt-index = { path = "../../util/index" }
 lmt-parser = { path = "../parser" }

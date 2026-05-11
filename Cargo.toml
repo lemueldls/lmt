@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/bin/*", "crates/core/*"]
+members = ["crates/bin/*", "crates/core/*", "crates/util/*"]
 package.edition = "2024"
 package.version = "0.1.0-alpha.0"
 resolver = "3"
@@ -16,10 +16,39 @@ facet = { version = "0.46.0" }
 cvc5-rs = { version = "0.3.2" }
 anyhow = { version = "1.0" }
 thiserror = { version = "2.0" }
+async-process = { version = "2.5.0" }
+futures = { version = "0.3", features = ["alloc"] }
+tokio-util = { version = "0.7", features = ["full"] }
+tower-service = { version = "0.3" }
+tracing = { version = "0.1" }
+simplelock = { version = "0.4.1" }
+dashmap = { version = "6.1.0" }
+mmap-sync = { version = "2.0.4" }
+dirs = { version = "6.0.0" }
+fs4 = { version = "1", features = ["tokio"] }
+async-lsp = { version = "0.2.4", features = [
+  "client-monitor",
+  "omni-trait",
+  "stdio",
+  "tracing",
+  "forward",
+  "tokio",
+] }
+parking_lot = { version = "0.12.5", features = [
+  "deadlock_detection",
+  "nightly",
+  # "send_guard",
+  # "owning_ref",
+  # "arc_lock",
+] }
+slotmap = { version = "1.1.1" }
+tracing-subscriber = { version = "0.3" }
+tower = { version = "0.5", features = ["util"] }
+lsp-types = { version = "0.95.0" }
 tokio = { version = "1", features = ["full"] }
-rust-sitter = { version = "=0.4.1" }
-rust-sitter-tool = { version = "=0.4.1" }
-rust-sitter-macro = { version = "=0.4.1" }
-rust-sitter-common = { version = "=0.4.1" }
+# rust-sitter = { version = "=0.4.1" }
+# rust-sitter-tool = { version = "=0.4.1" }
+# rust-sitter-macro = { version = "=0.4.1" }
+# rust-sitter-common = { version = "=0.4.1" }
 insta = { version = "1.47.2" }
 wasm-bindgen-test = { version = "0.3" }
