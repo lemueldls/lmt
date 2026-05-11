@@ -1,16 +1,22 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, anyhow};
 use cvc5_rs::{Term, TermManager};
 use lmt_parser::{
     SpecItem,
-    ast::{Assertion, Expr, FunctionContract, Pattern, Type, TypeAlias},
+    ast::{Assertion, BaseType, Expr, FunctionContract, Pattern, Type, TypeAlias},
 };
 
 use crate::{
     expr_conv::expr_to_term,
     solver::{self, SolverEnv},
 };
+
+#[derive(Debug, Clone)]
+struct ExpandedType {
+    base: BaseType,
+    predicates: Vec<Expr>,
+}
 
 #[derive(Debug, Default)]
 pub struct VerificationEnv {
@@ -34,12 +40,16 @@ impl VerificationEnv {
     pub fn insert_alias(&mut self, alias: TypeAlias) {
         self.aliases.insert(alias.name.clone(), alias);
     }
+
+    pub fn aliases(&self) -> &HashMap<String, TypeAlias> {
+        &self.aliases
+    }
 }
 
 pub fn check_spec_item(item: &SpecItem, env: &mut VerificationEnv) -> Result<()> {
     match item {
         SpecItem::TypeAlias(alias) => {
-            check_type_alias_consistency(alias)?;
+            check_type_alias_consistency(alias, env)?;
             env.insert_alias(alias.clone());
 
             Ok(())
@@ -68,23 +78,22 @@ fn check_contract_consistency_with_env(
     let mut assumptions: Vec<Term> = Vec::new();
 
     for (name, ty) in &contract.params {
-        solver_env.insert_var_from_type(&tm, name, ty);
-        if let Type::Refined { v, predicate, .. } = ty {
-            let pred = substitute_var(predicate, v, name);
-            let pred_term = expr_to_term(&tm, &pred, solver_env.vars())?;
-            assumptions.push(pred_term);
+        let expanded = expand_type(ty, env.aliases(), name)?;
+        solver_env.insert_var_from_base(&tm, name, &expanded.base);
+        for predicate in expanded.predicates {
+            assumptions.push(expr_to_term(&tm, &predicate, solver_env.vars())?);
         }
     }
 
-    solver_env.insert_var_from_type(&tm, "v", &contract.return_type);
+    let expanded_return = expand_type(&contract.return_type, env.aliases(), "v")?;
+    solver_env.insert_var_from_base(&tm, "v", &expanded_return.base);
 
     for fact in env.facts() {
         assumptions.push(expr_to_term(&tm, fact, solver_env.vars())?);
     }
 
-    if let Type::Refined { v, predicate, .. } = &contract.return_type {
-        let pred = substitute_var(predicate, v, "v");
-        assumptions.push(expr_to_term(&tm, &pred, solver_env.vars())?);
+    for predicate in expanded_return.predicates {
+        assumptions.push(expr_to_term(&tm, &predicate, solver_env.vars())?);
     }
 
     if solver::is_satisfiable(&tm, &assumptions)? {
@@ -97,20 +106,137 @@ fn check_contract_consistency_with_env(
     }
 }
 
-fn check_type_alias_consistency(alias: &TypeAlias) -> Result<()> {
-    if let Type::Refined { v, predicate, .. } = &alias.ty {
+fn check_type_alias_consistency(alias: &TypeAlias, env: &VerificationEnv) -> Result<()> {
+    let value_name = "it";
+    let expanded = expand_type(&alias.ty, env.aliases(), value_name)?;
+
+    if expanded.predicates.is_empty() {
+        Ok(())
+    } else {
         let tm = TermManager::new();
         let mut solver_env = SolverEnv::new();
-        solver_env.insert_var_from_type(&tm, v, &alias.ty);
-        let predicate_term = expr_to_term(&tm, predicate, solver_env.vars())?;
+        solver_env.insert_var_from_base(&tm, value_name, &expanded.base);
 
-        if solver::is_satisfiable(&tm, &[predicate_term])? {
+        let assumptions = expanded
+            .predicates
+            .iter()
+            .map(|predicate| expr_to_term(&tm, predicate, solver_env.vars()))
+            .collect::<Result<Vec<_>>>()?;
+
+        if solver::is_satisfiable(&tm, &assumptions)? {
             Ok(())
         } else {
             Err(anyhow!("type alias `{}` is inconsistent", alias.name))
         }
-    } else {
-        Ok(())
+    }
+}
+
+pub fn is_subtype(sub: &Type, sup: &Type, env: &VerificationEnv) -> Result<bool> {
+    let value_name = "it";
+    let sub_expanded = expand_type(sub, env.aliases(), value_name)?;
+    let sup_expanded = expand_type(sup, env.aliases(), value_name)?;
+
+    if sub_expanded.base != sup_expanded.base {
+        return Ok(false);
+    }
+
+    if sup_expanded.predicates.is_empty() {
+        return Ok(true);
+    }
+
+    let tm = TermManager::new();
+    let mut solver_env = SolverEnv::new();
+    solver_env.insert_var_from_base(&tm, value_name, &sub_expanded.base);
+
+    let assumptions = sub_expanded
+        .predicates
+        .iter()
+        .map(|predicate| expr_to_term(&tm, predicate, solver_env.vars()))
+        .collect::<Result<Vec<_>>>()?;
+
+    let goal = conjunction(&tm, &sup_expanded.predicates, solver_env.vars())?;
+
+    solver::proves(&tm, &assumptions, &goal)
+}
+
+fn conjunction(
+    tm: &TermManager,
+    predicates: &[Expr],
+    vars: &HashMap<String, Term>,
+) -> Result<Term> {
+    let mut terms = predicates
+        .iter()
+        .map(|predicate| expr_to_term(tm, predicate, vars))
+        .collect::<Result<Vec<_>>>()?;
+
+    if terms.is_empty() {
+        return Ok(tm.mk_true());
+    }
+
+    let mut acc = terms.remove(0);
+    for term in terms {
+        acc = tm.mk_term(cvc5_rs::Kind::CVC5_KIND_AND, &[acc, term]);
+    }
+
+    Ok(acc)
+}
+
+fn expand_type(
+    ty: &Type,
+    aliases: &HashMap<String, TypeAlias>,
+    value_name: &str,
+) -> Result<ExpandedType> {
+    let mut visiting = HashSet::new();
+    expand_type_with_stack(ty, aliases, value_name, &mut visiting)
+}
+
+fn expand_type_with_stack(
+    ty: &Type,
+    aliases: &HashMap<String, TypeAlias>,
+    value_name: &str,
+    visiting: &mut HashSet<String>,
+) -> Result<ExpandedType> {
+    match ty {
+        Type::Base(base) => expand_base(base, aliases, value_name, visiting),
+        Type::Refined { base, v, predicate } => {
+            let mut expanded = expand_base(base, aliases, value_name, visiting)?;
+            expanded
+                .predicates
+                .push(substitute_var(predicate, v, value_name));
+            Ok(expanded)
+        }
+    }
+}
+
+fn expand_base(
+    base: &BaseType,
+    aliases: &HashMap<String, TypeAlias>,
+    value_name: &str,
+    visiting: &mut HashSet<String>,
+) -> Result<ExpandedType> {
+    match base {
+        BaseType::Custom(name) => {
+            if let Some(alias) = aliases.get(name) {
+                if !visiting.insert(name.clone()) {
+                    return Err(anyhow!("cyclic type alias detected at `{}`", name));
+                }
+
+                let expanded = expand_type_with_stack(&alias.ty, aliases, value_name, visiting);
+                visiting.remove(name);
+                expanded
+            } else {
+                Ok(ExpandedType {
+                    base: base.clone(),
+                    predicates: Vec::new(),
+                })
+            }
+        }
+        _ => {
+            Ok(ExpandedType {
+                base: base.clone(),
+                predicates: Vec::new(),
+            })
+        }
     }
 }
 
@@ -266,5 +392,49 @@ mod tests {
         let mut parser = Parser::new("@assert 1 < 0");
         let item = SpecItem::Assertion(parser.parse_assertion());
         assert!(check_spec_item(&item, &mut env).is_err());
+    }
+
+    #[test]
+    fn test_type_alias_chain_consistency() {
+        let mut env = VerificationEnv::new();
+        let mut parser = Parser::new("let Nat = Int | it >= 0");
+        let nat = parser.parse_spec_item();
+        check_spec_item(&nat, &mut env).expect("Nat should be consistent");
+
+        let mut parser = Parser::new("let SmallNat = Nat | it < 256");
+        let small = parser.parse_spec_item();
+        check_spec_item(&small, &mut env).expect("SmallNat should be consistent");
+    }
+
+    #[test]
+    fn test_subtyping_refinements() {
+        let env = VerificationEnv::new();
+        let mut parser = Parser::new("Int | it > 0");
+        let pos = parser.parse_type();
+        let mut parser = Parser::new("Int | it >= 0");
+        let nat = parser.parse_type();
+
+        assert!(is_subtype(&pos, &nat, &env).expect("subtyping check"));
+        assert!(!is_subtype(&nat, &pos, &env).expect("subtyping check"));
+    }
+
+    #[test]
+    fn test_subtyping_with_aliases() {
+        let mut env = VerificationEnv::new();
+
+        let mut parser = Parser::new("let Nat = Int | it >= 0");
+        let nat_item = parser.parse_spec_item();
+        check_spec_item(&nat_item, &mut env).expect("Nat alias should verify");
+
+        let mut parser = Parser::new("let PosInt = Nat | it > 0");
+        let pos_item = parser.parse_spec_item();
+        check_spec_item(&pos_item, &mut env).expect("PosInt alias should verify");
+
+        let mut parser = Parser::new("PosInt");
+        let pos_type = parser.parse_type();
+        let mut parser = Parser::new("Nat");
+        let nat_type = parser.parse_type();
+
+        assert!(is_subtype(&pos_type, &nat_type, &env).expect("alias subtyping check"));
     }
 }

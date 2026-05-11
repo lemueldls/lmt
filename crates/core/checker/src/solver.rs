@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
 use cvc5_rs::{Kind, Solver, Sort, Term, TermManager};
-use lmt_parser::ast::{BaseType, Type};
+use lmt_parser::ast::BaseType;
 
 pub struct SolverEnv {
     vars: HashMap<String, Term>,
@@ -19,8 +19,7 @@ impl SolverEnv {
         &self.vars
     }
 
-    pub fn insert_var_from_type(&mut self, tm: &TermManager, name: &str, ty: &Type) {
-        let base = base_type_of(ty);
+    pub fn insert_var_from_base(&mut self, tm: &TermManager, name: &str, base: &BaseType) {
         let sort = sort_for_base(tm, base);
         let term = tm.mk_const(sort, name);
         self.vars.insert(name.to_string(), term);
@@ -60,13 +59,6 @@ pub fn proves(tm: &TermManager, assumptions: &[Term], goal: &Term) -> Result<boo
     }
 
     Ok(result.is_unsat())
-}
-
-pub fn base_type_of(ty: &Type) -> &BaseType {
-    match ty {
-        Type::Base(base) => base,
-        Type::Refined { base, .. } => base,
-    }
 }
 
 pub fn sort_for_base(tm: &TermManager, base: &BaseType) -> Sort {

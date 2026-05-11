@@ -9,6 +9,8 @@ use std::path::Path;
 use anyhow::Context;
 use lmt_parser::{StructuralMapper, parser::Parser};
 
+use crate::refinement::VerificationEnv;
+
 pub fn check_simple_arithmetic() -> Result<()> {
     let tm = TermManager::new();
     let mut solver = Solver::new(&tm);
@@ -66,13 +68,25 @@ pub fn check_contract_spec(spec: &str) -> Result<()> {
     refinement::check_contract_consistency(&contract)
 }
 
+pub fn check_subtype_spec(sub: &str, sup: &str) -> Result<bool> {
+    let mut sub_parser = Parser::new(sub);
+    let sub_ty = sub_parser.parse_type();
+
+    let mut sup_parser = Parser::new(sup);
+    let sup_ty = sup_parser.parse_type();
+
+    let env = VerificationEnv::new();
+
+    refinement::is_subtype(&sub_ty, &sup_ty, &env)
+}
+
 fn check_file(path: &Path) -> Result<()> {
     let mapper = StructuralMapper::new();
     let mappings = mapper
         .map_file_items(path)
         .with_context(|| format!("failed to map file {}", path.display()))?;
 
-    let mut env = refinement::VerificationEnv::new();
+    let mut env = VerificationEnv::new();
 
     for mapping in mappings {
         refinement::check_spec_item(&mapping.item, &mut env).with_context(|| {
@@ -164,5 +178,11 @@ mod tests {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../parser/tests/fixtures/simple.lmt");
         check_path(path.to_str().expect("valid path")).expect("expected lmt program to check");
+    }
+
+    #[test]
+    fn test_check_subtype_spec() {
+        assert!(check_subtype_spec("Int | it > 0", "Int | it >= 0").expect("subtyping check"));
+        assert!(!check_subtype_spec("Int | it >= 0", "Int | it > 0").expect("subtyping check"));
     }
 }

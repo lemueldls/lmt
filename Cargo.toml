@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/bin/*", "crates/core/*", "crates/tree-sitter"]
+members = ["crates/bin/*", "crates/core/*"]
 package.edition = "2024"
 package.version = "0.1.0-alpha.0"
 resolver = "3"
