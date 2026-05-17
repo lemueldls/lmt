@@ -1,9 +1,9 @@
 use anyhow::Result;
 use cvc5_rs::{Kind, Solver, TermManager};
 mod expr_conv;
+pub mod filesystem;
 mod refinement;
 mod solver;
-pub mod filesystem;
 
 use std::path::Path;
 
@@ -24,7 +24,7 @@ pub struct Diagnostic {
 /// This is the main entry point for LSP diagnostics publishing.
 pub fn check_text(path: &str, text: &str) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    
+
     // Write temp file if needed for structural mapping
     let is_lmt = path.ends_with(".lmt");
     let temp_path = if !is_lmt {
@@ -42,13 +42,13 @@ pub fn check_text(path: &str, text: &str) -> Vec<Diagnostic> {
     } else {
         None
     };
-    
+
     let check_path_str = if let Some(ref tp) = temp_path {
         tp.to_str().unwrap_or(path)
     } else {
         path
     };
-    
+
     // Map file items using StructuralMapper
     let mapper = StructuralMapper::new();
     let mappings = match mapper.map_file_items(Path::new(check_path_str)) {
@@ -65,7 +65,7 @@ pub fn check_text(path: &str, text: &str) -> Vec<Diagnostic> {
             return diagnostics;
         }
     };
-    
+
     // Check each spec item, collecting errors
     let mut env = VerificationEnv::new();
     for mapping in mappings {
@@ -74,13 +74,13 @@ pub fn check_text(path: &str, text: &str) -> Vec<Diagnostic> {
                 .target_range
                 .map(|r| (Some(r.start), Some(r.end)))
                 .unwrap_or((None, None));
-            
+
             let item_desc = match &mapping.item {
                 lmt_parser::SpecItem::TypeAlias(a) => format!("type alias `{}`", a.name),
                 lmt_parser::SpecItem::FunctionContract(c) => format!("function `{}`", c.name),
                 lmt_parser::SpecItem::Assertion(_) => "assertion".to_string(),
             };
-            
+
             diagnostics.push(Diagnostic {
                 message: format!("{}: {}", item_desc, err),
                 start_byte: start,
@@ -88,12 +88,12 @@ pub fn check_text(path: &str, text: &str) -> Vec<Diagnostic> {
             });
         }
     }
-    
+
     // Clean up temp file
     if let Some(tp) = temp_path {
         let _ = std::fs::remove_file(tp);
     }
-    
+
     diagnostics
 }
 
@@ -286,6 +286,9 @@ mod tests {
         // Impossible refinement: x > 0 && x < 0
         let text = "let Impossible = Int | it > 0 && it < 0\n";
         let diags = check_text("test.lmt", text);
-        assert!(!diags.is_empty(), "expected diagnostics for impossible refinement");
+        assert!(
+            !diags.is_empty(),
+            "expected diagnostics for impossible refinement"
+        );
     }
 }

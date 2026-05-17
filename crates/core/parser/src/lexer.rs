@@ -11,20 +11,20 @@ pub enum Token {
     False,
 
     // Braces and Punctuation
-    LBrace, // {
-    RBrace, // }
-    LParen, // (
-    RParen, // )
+    LBrace,   // {
+    RBrace,   // }
+    LParen,   // (
+    RParen,   // )
     LBracket, // [
     RBracket, // ]
-    Pipe,   // |
-    Colon,  // :
-    Semi,   // ;
-    Comma,  // ,
-    Arrow,  // ->
+    Pipe,     // |
+    Colon,    // :
+    Semi,     // ;
+    Comma,    // ,
+    Arrow,    // ->
 
     // Annotations
-    Assert, // @assert
+    Assert, // assert
 
     // Operators
     And,     // &&
@@ -44,7 +44,7 @@ pub enum Token {
     Minus, // -
     Star,  // *
     Slash, // /
-    Cons, // ::
+    Cons,  // ::
 
     // Literals and Identifiers
     Ident(String),
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_lexer_basic() {
-        let input = "let { } | : , -> @assert && || ! => == = != < <= > >= + - * / ident 123 45.6 true false";
+        let input = "let { } | : , -> assert && || ! => == = != < <= > >= + - * / ident 123 45.6 true false";
         let mut lexer = Lexer::new(input);
 
         assert_eq!(lexer.next_token(), Token::Let);

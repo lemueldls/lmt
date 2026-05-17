@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn test_check_assertion_in_sequence() {
         let mut env = VerificationEnv::new();
-        let mut parser = Parser::new("@assert 1 + 1 == 2");
+        let mut parser = Parser::new("assert 1 + 1 == 2");
         let item = SpecItem::Assertion(parser.parse_assertion());
         check_spec_item(&item, &mut env).expect("assertion should verify");
         assert_eq!(env.facts().len(), 1);
@@ -389,7 +389,7 @@ mod tests {
     #[test]
     fn test_check_bad_assertion_fails() {
         let mut env = VerificationEnv::new();
-        let mut parser = Parser::new("@assert 1 < 0");
+        let mut parser = Parser::new("assert 1 < 0");
         let item = SpecItem::Assertion(parser.parse_assertion());
         assert!(check_spec_item(&item, &mut env).is_err());
     }

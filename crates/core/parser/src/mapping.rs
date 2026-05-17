@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn test_extract_assert() {
         let mapper = StructuralMapper::new();
-        match mapper.extract_annotation("// @[@assert x > 0]").unwrap() {
+        match mapper.extract_annotation("// @[assert x > 0]").unwrap() {
             SpecItem::Assertion(_) => {}
             _ => panic!("expected assertion"),
         }

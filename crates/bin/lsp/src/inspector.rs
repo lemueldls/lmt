@@ -1,7 +1,9 @@
-use std::ops::ControlFlow;
-use std::pin::Pin;
-use std::process::Stdio;
-use std::task::{Context, Poll};
+use std::{
+    ops::ControlFlow,
+    pin::Pin,
+    process::Stdio,
+    task::{Context, Poll},
+};
 
 use async_lsp::{AnyEvent, AnyNotification, AnyRequest, LspService, MainLoop};
 use async_process::Command;
@@ -13,9 +15,9 @@ use tracing::Level;
 struct Forward<S>(Option<S>);
 
 impl<S: LspService> Service<AnyRequest> for Forward<S> {
-    type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
+    type Response = S::Response;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.as_mut().unwrap().poll_ready(cx)
@@ -43,12 +45,11 @@ struct Inspect<S> {
 }
 
 impl<S: LspService> Service<AnyRequest> for Inspect<S>
-where
-    S::Future: Send + 'static,
+where S::Future: Send + 'static
 {
-    type Response = S::Response;
     type Error = S::Error;
     type Future = Pin<Box<dyn Future<Output = Result<S::Response, S::Error>> + Send>>;
+    type Response = S::Response;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
@@ -73,8 +74,7 @@ where
 }
 
 impl<S: LspService> LspService for Inspect<S>
-where
-    S::Future: Send + 'static,
+where S::Future: Send + 'static
 {
     fn notify(&mut self, notif: AnyNotification) -> ControlFlow<async_lsp::Result<()>> {
         tracing::info!("{} notification {}", self.incoming, notif.method);
@@ -105,17 +105,21 @@ async fn main() {
         .expect("failed to spawn");
 
     // Mock client to communicate with the server. Incoming messages are forwarded to stdin/out.
-    let (mut mock_client, server_socket) = MainLoop::new_client(|_| Inspect {
-        service: Forward(None),
-        incoming: "<",
-        outgoing: ">",
+    let (mut mock_client, server_socket) = MainLoop::new_client(|_| {
+        Inspect {
+            service: Forward(None),
+            incoming: "<",
+            outgoing: ">",
+        }
     });
 
     // Mock server to communicate with the client. Incoming messages are forwarded to child LSP.
-    let (mock_server, client_socket) = MainLoop::new_server(|_| Inspect {
-        service: server_socket,
-        incoming: ">",
-        outgoing: "<",
+    let (mock_server, client_socket) = MainLoop::new_server(|_| {
+        Inspect {
+            service: server_socket,
+            incoming: ">",
+            outgoing: "<",
+        }
     });
 
     // Link to form a bidirectional connection.

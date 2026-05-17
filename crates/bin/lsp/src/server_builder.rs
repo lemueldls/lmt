@@ -1,19 +1,15 @@
-use std::ops::ControlFlow;
-use std::time::Duration;
+use std::{ops::ControlFlow, time::Duration};
 
-use async_lsp::client_monitor::ClientProcessMonitorLayer;
-use async_lsp::concurrency::ConcurrencyLayer;
-use async_lsp::panic::CatchUnwindLayer;
-use async_lsp::router::Router;
-use async_lsp::server::LifecycleLayer;
-use async_lsp::tracing::TracingLayer;
-use async_lsp::ClientSocket;
+use async_lsp::{
+    ClientSocket, client_monitor::ClientProcessMonitorLayer, concurrency::ConcurrencyLayer,
+    panic::CatchUnwindLayer, router::Router, server::LifecycleLayer, tracing::TracingLayer,
+};
 use lsp_types::{
-    notification, request, Hover, HoverContents, HoverProviderCapability, InitializeResult,
-    MarkedString, MessageType, OneOf, ServerCapabilities, ShowMessageParams,
+    Hover, HoverContents, HoverProviderCapability, InitializeResult, MarkedString, MessageType,
+    OneOf, ServerCapabilities, ShowMessageParams, notification, request,
 };
 use tower::ServiceBuilder;
-use tracing::{info, Level};
+use tracing::{Level, info};
 
 struct ServerState {
     client: ClientSocket,
@@ -43,16 +39,18 @@ async fn main() {
             counter: 0,
         });
         router
-            .request::<request::Initialize, _>(|_, params| async move {
-                eprintln!("Initialize with {params:?}");
-                Ok(InitializeResult {
-                    capabilities: ServerCapabilities {
-                        hover_provider: Some(HoverProviderCapability::Simple(true)),
-                        definition_provider: Some(OneOf::Left(true)),
-                        ..ServerCapabilities::default()
-                    },
-                    server_info: None,
-                })
+            .request::<request::Initialize, _>(|_, params| {
+                async move {
+                    eprintln!("Initialize with {params:?}");
+                    Ok(InitializeResult {
+                        capabilities: ServerCapabilities {
+                            hover_provider: Some(HoverProviderCapability::Simple(true)),
+                            definition_provider: Some(OneOf::Left(true)),
+                            ..ServerCapabilities::default()
+                        },
+                        server_info: None,
+                    })
+                }
             })
             .request::<request::HoverRequest, _>(|st, _| {
                 let client = st.client.clone();
@@ -73,8 +71,8 @@ async fn main() {
                     }))
                 }
             })
-            .request::<request::GotoDefinition, _>(|_, _| async move {
-                unimplemented!("Not yet implemented!")
+            .request::<request::GotoDefinition, _>(|_, _| {
+                async move { unimplemented!("Not yet implemented!") }
             })
             .notification::<notification::Initialized>(|_, _| ControlFlow::Continue(()))
             .notification::<notification::DidChangeConfiguration>(|_, _| ControlFlow::Continue(()))

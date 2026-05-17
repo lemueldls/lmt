@@ -1,13 +1,10 @@
-use std::ops::ControlFlow;
-use std::time::Duration;
+use std::{ops::ControlFlow, time::Duration};
 
-use async_lsp::client_monitor::ClientProcessMonitorLayer;
-use async_lsp::concurrency::ConcurrencyLayer;
-use async_lsp::panic::CatchUnwindLayer;
-use async_lsp::router::Router;
-use async_lsp::server::LifecycleLayer;
-use async_lsp::tracing::TracingLayer;
-use async_lsp::{ClientSocket, LanguageClient, LanguageServer, ResponseError};
+use async_lsp::{
+    ClientSocket, LanguageClient, LanguageServer, ResponseError,
+    client_monitor::ClientProcessMonitorLayer, concurrency::ConcurrencyLayer,
+    panic::CatchUnwindLayer, router::Router, server::LifecycleLayer, tracing::TracingLayer,
+};
 use futures::future::BoxFuture;
 use lsp_types::{
     DidChangeConfigurationParams, GotoDefinitionParams, GotoDefinitionResponse, Hover,
@@ -15,7 +12,7 @@ use lsp_types::{
     MarkedString, MessageType, OneOf, ServerCapabilities, ShowMessageParams,
 };
 use tower::ServiceBuilder;
-use tracing::{info, Level};
+use tracing::{Level, info};
 
 struct ServerState {
     client: ClientSocket,

@@ -1,8 +1,20 @@
 [package]
 name = "lmt-index"
-edition.workspace = true
+description = "Newtype-style helpers"
 version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+readme.workspace = true
 
 [dependencies]
 parking_lot.workspace = true
 slotmap.workspace = true
+
+[lints]
+workspace = true

@@ -1,7 +1,15 @@
 [package]
 name = "lmt-checker"
-edition.workspace = true
 version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+readme.workspace = true
 
 [dependencies]
 anyhow.workspace = true
@@ -11,3 +19,6 @@ thiserror.workspace = true
 
 lmt-index = { path = "../../util/index" }
 lmt-parser = { path = "../parser" }
+
+[lints]
+workspace = true

@@ -1,12 +1,9 @@
-use std::ops::ControlFlow;
-use std::path::Path;
-use std::process::Stdio;
+use std::{ops::ControlFlow, path::Path, process::Stdio};
 
-use async_lsp::concurrency::ConcurrencyLayer;
-use async_lsp::panic::CatchUnwindLayer;
-use async_lsp::router::Router;
-use async_lsp::tracing::TracingLayer;
-use async_lsp::{Error, ErrorCode, LanguageClient, LanguageServer, ResponseError};
+use async_lsp::{
+    Error, ErrorCode, LanguageClient, LanguageServer, ResponseError, concurrency::ConcurrencyLayer,
+    panic::CatchUnwindLayer, router::Router, tracing::TracingLayer,
+};
 use futures::channel::oneshot;
 use lsp_types::{
     ClientCapabilities, DidOpenTextDocumentParams, HoverContents, HoverParams, InitializeParams,
@@ -16,7 +13,7 @@ use lsp_types::{
     WorkDoneProgressParams, WorkspaceFolder,
 };
 use tower::ServiceBuilder;
-use tracing::{info, Level};
+use tracing::{Level, info};
 
 const TEST_ROOT: &str = "tests/client_test_data";
 // Old and new token names.

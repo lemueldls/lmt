@@ -725,7 +725,8 @@ mod tests {
 
     #[test]
     fn test_parse_spec_items_mixed() {
-        let input = "let Nat = Int | it >= 0 let inc(x: Nat): (res: Nat | res == x + 1) @assert: 1 + 1 == 2";
+        let input =
+            "let Nat = Int | it >= 0 let inc(x: Nat): (res: Nat | res == x + 1) assert: 1 + 1 == 2";
         let items = parse_spec_items(input);
 
         assert_eq!(items.len(), 3);

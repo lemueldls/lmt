@@ -1,9 +1,8 @@
-/// LSP server state and document management.
+use std::{collections::HashMap, sync::Arc};
 
+/// LSP server state and document management.
 use async_lsp::ClientSocket;
 use lsp_types::Url;
-use std::collections::HashMap;
-use std::sync::Arc;
 use parking_lot::RwLock;
 
 /// LSP server state managing open documents and diagnostics.
