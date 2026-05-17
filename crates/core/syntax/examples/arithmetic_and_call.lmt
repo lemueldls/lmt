@@ -1,0 +1,2 @@
+let square = n * n;
+let doubled = square(2) + 2;

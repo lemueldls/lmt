@@ -1,0 +1,67 @@
+---
+source: crates/core/syntax/tests/examples.rs
+expression: render_case(&src)
+---
+SOURCE:
+let x : Int | it > 10 and it < 20 = ?;
+
+TOKENS:
+Let@0..3
+Ident("x")@4..5
+Colon@6..7
+Ident("Int")@8..11
+Pipe@12..13
+Ident("it")@14..16
+Gt@17..18
+Int(10)@19..21
+And@22..25
+Ident("it")@26..28
+Lt@29..30
+Int(20)@31..33
+Assign@34..35
+Hole@36..37
+Semi@37..38
+EOF@38..38
+
+PROGRAM:
+Program {
+    statements: [
+        Let(
+            LetDecl {
+                name: "x",
+                annotation: Some(
+                    Binary {
+                        left: Refinement {
+                            base: Var(
+                                "Int",
+                            ),
+                            binder: None,
+                            predicate: Binary {
+                                left: Var(
+                                    "it",
+                                ),
+                                op: Gt,
+                                right: LiteralInt(
+                                    10,
+                                ),
+                            },
+                        },
+                        op: And,
+                        right: Binary {
+                            left: Var(
+                                "it",
+                            ),
+                            op: Lt,
+                            right: LiteralInt(
+                                20,
+                            ),
+                        },
+                    },
+                ),
+                value: Some(
+                    Hole,
+                ),
+            },
+        ),
+    ],
+}

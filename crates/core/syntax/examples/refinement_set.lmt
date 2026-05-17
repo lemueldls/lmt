@@ -1,0 +1,1 @@
+let Evens = Int | it % 2 == 0

@@ -1,0 +1,30 @@
+---
+source: crates/core/syntax/tests/examples.rs
+expression: render_case(&src)
+---
+SOURCE:
+use foo.bar.baz
+
+TOKENS:
+Use@0..3
+Ident("foo")@4..7
+Dot@7..8
+Ident("bar")@8..11
+Dot@11..12
+Ident("baz")@12..15
+EOF@15..15
+
+PROGRAM:
+Program {
+    statements: [
+        Use(
+            UseDecl {
+                path: [
+                    "foo",
+                    "bar",
+                    "baz",
+                ],
+            },
+        ),
+    ],
+}

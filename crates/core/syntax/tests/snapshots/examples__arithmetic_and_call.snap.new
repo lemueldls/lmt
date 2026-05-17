@@ -1,0 +1,75 @@
+---
+source: crates/core/syntax/tests/examples.rs
+assertion_line: 56
+expression: render_case(&src)
+---
+SOURCE:
+let square = n * n;
+let doubled = square(2) + 2;
+
+TOKENS:
+Let@0..3
+Ident("square")@4..10
+Assign@11..12
+Ident("n")@13..14
+Star@15..16
+Ident("n")@17..18
+Semi@18..19
+Let@20..23
+Ident("doubled")@24..31
+Assign@32..33
+Ident("square")@34..40
+LParen@40..41
+Int(2)@41..42
+RParen@42..43
+Plus@44..45
+Int(2)@46..47
+Semi@47..48
+EOF@48..48
+
+PROGRAM:
+Program {
+    statements: [
+        Let(
+            LetDecl {
+                name: "square",
+                annotation: None,
+                value: Some(
+                    Binary {
+                        left: Var(
+                            "n",
+                        ),
+                        op: Mul,
+                        right: Var(
+                            "n",
+                        ),
+                    },
+                ),
+            },
+        ),
+        Let(
+            LetDecl {
+                name: "doubled",
+                annotation: None,
+                value: Some(
+                    Binary {
+                        left: Call {
+                            callee: Var(
+                                "square",
+                            ),
+                            args: [
+                                LiteralInt(
+                                    2,
+                                ),
+                            ],
+                        },
+                        op: Add,
+                        right: LiteralInt(
+                            2,
+                        ),
+                    },
+                ),
+            },
+        ),
+    ],
+}

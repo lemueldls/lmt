@@ -1,0 +1,58 @@
+---
+source: crates/core/syntax/tests/examples.rs
+expression: render_case(&src)
+---
+SOURCE:
+match value { .Some(v) => v, _ => 0 }
+
+TOKENS:
+Match@0..5
+Ident("value")@6..11
+LBrace@12..13
+Dot@14..15
+Ident("Some")@15..19
+LParen@19..20
+Ident("v")@20..21
+RParen@21..22
+FatArrow@23..25
+Ident("v")@26..27
+Comma@27..28
+Ident("_")@29..30
+FatArrow@31..33
+Int(0)@34..35
+RBrace@36..37
+EOF@37..37
+
+PROGRAM:
+Program {
+    statements: [
+        Expr(
+            Match {
+                scrutinee: Var(
+                    "value",
+                ),
+                arms: [
+                    MatchArm {
+                        pattern: Variant {
+                            name: "Some",
+                            args: [
+                                Ident(
+                                    "v",
+                                ),
+                            ],
+                        },
+                        body: Var(
+                            "v",
+                        ),
+                    },
+                    MatchArm {
+                        pattern: Wildcard,
+                        body: LiteralInt(
+                            0,
+                        ),
+                    },
+                ],
+            },
+        ),
+    ],
+}

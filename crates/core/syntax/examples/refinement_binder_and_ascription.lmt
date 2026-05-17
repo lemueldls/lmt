@@ -1,0 +1,2 @@
+let bounded = value | it -> it > 0 and it < 10;
+let proof = expr :: Int;

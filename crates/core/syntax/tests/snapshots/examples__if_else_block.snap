@@ -1,0 +1,75 @@
+---
+source: crates/core/syntax/tests/examples.rs
+expression: render_case(&src)
+---
+SOURCE:
+let abs = if n > 0 { n } else { -n };
+
+TOKENS:
+Let@0..3
+Ident("abs")@4..7
+Assign@8..9
+If@10..12
+Ident("n")@13..14
+Gt@15..16
+Int(0)@17..18
+LBrace@19..20
+Ident("n")@21..22
+RBrace@23..24
+Else@25..29
+LBrace@30..31
+Minus@32..33
+Ident("n")@33..34
+RBrace@35..36
+Semi@36..37
+EOF@37..37
+
+PROGRAM:
+Program {
+    statements: [
+        Let(
+            LetDecl {
+                name: "abs",
+                annotation: None,
+                value: Some(
+                    If {
+                        condition: Binary {
+                            left: Var(
+                                "n",
+                            ),
+                            op: Gt,
+                            right: LiteralInt(
+                                0,
+                            ),
+                        },
+                        then_branch: Block {
+                            statements: [
+                                Expr(
+                                    Var(
+                                        "n",
+                                    ),
+                                ),
+                            ],
+                            tail: None,
+                        },
+                        else_branch: Some(
+                            Block {
+                                statements: [
+                                    Expr(
+                                        Unary {
+                                            op: Neg,
+                                            expr: Var(
+                                                "n",
+                                            ),
+                                        },
+                                    ),
+                                ],
+                                tail: None,
+                            },
+                        ),
+                    },
+                ),
+            },
+        ),
+    ],
+}

@@ -1,0 +1,54 @@
+---
+source: crates/core/syntax/tests/examples.rs
+expression: render_case(&src)
+---
+SOURCE:
+let Evens = Int | it % 2 == 0
+
+TOKENS:
+Let@0..3
+Ident("Evens")@4..9
+Assign@10..11
+Ident("Int")@12..15
+Pipe@16..17
+Ident("it")@18..20
+Percent@21..22
+Int(2)@23..24
+EqEq@25..27
+Int(0)@28..29
+EOF@29..29
+
+PROGRAM:
+Program {
+    statements: [
+        Let(
+            LetDecl {
+                name: "Evens",
+                annotation: None,
+                value: Some(
+                    Refinement {
+                        base: Var(
+                            "Int",
+                        ),
+                        binder: None,
+                        predicate: Binary {
+                            left: Binary {
+                                left: Var(
+                                    "it",
+                                ),
+                                op: Mod,
+                                right: LiteralInt(
+                                    2,
+                                ),
+                            },
+                            op: Eq,
+                            right: LiteralInt(
+                                0,
+                            ),
+                        },
+                    },
+                ),
+            },
+        ),
+    ],
+}

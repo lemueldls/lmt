@@ -1,0 +1,92 @@
+---
+source: crates/core/syntax/tests/examples.rs
+expression: render_case(&src)
+---
+SOURCE:
+let bounded = value | it -> it > 0 and it < 10;
+let proof = expr :: Int;
+
+TOKENS:
+Let@0..3
+Ident("bounded")@4..11
+Assign@12..13
+Ident("value")@14..19
+Pipe@20..21
+Ident("it")@22..24
+Arrow@25..27
+Ident("it")@28..30
+Gt@31..32
+Int(0)@33..34
+And@35..38
+Ident("it")@39..41
+Lt@42..43
+Int(10)@44..46
+Semi@46..47
+Let@48..51
+Ident("proof")@52..57
+Assign@58..59
+Ident("expr")@60..64
+ColonColon@65..67
+Ident("Int")@68..71
+Semi@71..72
+EOF@72..72
+
+PROGRAM:
+Program {
+    statements: [
+        Let(
+            LetDecl {
+                name: "bounded",
+                annotation: None,
+                value: Some(
+                    Binary {
+                        left: Refinement {
+                            base: Var(
+                                "value",
+                            ),
+                            binder: Some(
+                                "it",
+                            ),
+                            predicate: Binary {
+                                left: Var(
+                                    "it",
+                                ),
+                                op: Gt,
+                                right: LiteralInt(
+                                    0,
+                                ),
+                            },
+                        },
+                        op: And,
+                        right: Binary {
+                            left: Var(
+                                "it",
+                            ),
+                            op: Lt,
+                            right: LiteralInt(
+                                10,
+                            ),
+                        },
+                    },
+                ),
+            },
+        ),
+        Let(
+            LetDecl {
+                name: "proof",
+                annotation: None,
+                value: Some(
+                    Binary {
+                        left: Var(
+                            "expr",
+                        ),
+                        op: Ascription,
+                        right: Var(
+                            "Int",
+                        ),
+                    },
+                ),
+            },
+        ),
+    ],
+}
