@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cmp, collections::HashMap, iter::Peekable, str::Chars};
+use std::{cmp, iter::Peekable, str::Chars};
 
 use crossterm::style::{Color, Stylize, style};
 use facet::{Facet, PtrConst, Shape};
@@ -7,103 +7,47 @@ use facet_reflect::{HasFields, Peek};
 use line_col::LineColLookup;
 use rand::{rng, seq::SliceRandom};
 
-use crate::{Span, graph::ModuleGraph, source::HasNamedSourceIngredient};
+use crate::{ModuleId, Span, graph::ModuleGraph, source::HasNamedSourceIngredient};
 
-pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredient>(
-    t: &'mem T,
-    db: &DB,
-    graph: &impl ModuleGraph,
-) {
-    let peek = Peek::new(t).into_enum().unwrap();
+fn severity_prefix(severity: Option<&ReportSeverity>) -> &'static str {
+    match severity {
+        Some(ReportSeverity::Error) => "Error:",
+        Some(ReportSeverity::Warning) => "Warning:",
+        Some(ReportSeverity::Information) => "Info:",
+        Some(ReportSeverity::Hint) => "Hint:",
+        None => "Error:",
+    }
+}
 
-    let variant = peek.active_variant().unwrap();
-    let variant_label = variant.get_attr(Some("diagnostics"), "label");
-    let variant_help = variant.get_attr(Some("diagnostics"), "help");
+fn severity_prefix_colored(severity: Option<&ReportSeverity>) -> String {
+    let (text, color) = match severity {
+        Some(ReportSeverity::Error) => ("Error:", Color::Red),
+        Some(ReportSeverity::Warning) => ("Warning:", Color::Yellow),
+        Some(ReportSeverity::Information) => ("Info:", Color::Blue),
+        Some(ReportSeverity::Hint) => ("Hint:", Color::Cyan),
+        None => ("Error:", Color::Red),
+    };
 
+    format!("{}", style(text).with(color))
+}
+
+pub fn print(report: &Report) {
     let mut colors = {
         let mut colors = [Color::Green, Color::Blue, Color::Magenta, Color::Cyan];
         colors.shuffle(&mut rng());
-
         colors.into_iter().cycle()
     };
 
-    let field_names = peek
-        .fields()
-        .map(|(field, _)| field.effective_name())
-        .collect::<Vec<_>>();
-
-    let mut field_colors = HashMap::new();
-    for name in field_names {
-        field_colors.insert(name, colors.next().unwrap());
+    let mut infos = report.fields.clone();
+    for info in &mut infos {
+        info.color = colors.next().unwrap();
     }
 
-    // variant label will be rendered after we collect `infos`
-
-    let mut infos = Vec::new();
     let mut max_end_line = 0usize;
-
-    for (field, fpeek) in peek.fields() {
-        let name = field.effective_name().to_string();
-        let color = *field_colors.get(field.effective_name()).unwrap();
-
-        let mut span_meta = None;
-
-        if let Ok(span) = fpeek.get::<Span>() {
-            match *span {
-                Span::Known {
-                    start,
-                    end,
-                    module_id,
-                } => {
-                    let source = graph.get(module_id);
-                    let file_name = source.name(db).unwrap().to_string();
-                    let content = source.content(db).unwrap();
-
-                    let lookup = LineColLookup::new(&content);
-                    let (start_line, start_col) = lookup.get(start);
-                    let (end_line, end_col) = lookup.get(end);
-
-                    max_end_line = cmp::max(max_end_line, end_line);
-
-                    span_meta = Some(FieldSpan {
-                        file_name: file_name.clone(),
-                        content: content.to_string(),
-                        start,
-                        end,
-                        start_line,
-                        start_col,
-                        end_line,
-                        end_col,
-                    });
-                }
-                Span::Unknown => {}
-            }
+    for info in &infos {
+        if let Some(span) = &info.span {
+            max_end_line = cmp::max(max_end_line, span.end_line);
         }
-
-        let shape = field.shape();
-        let display = if shape.is_display() {
-            Some(
-                FieldDisplay {
-                    shape,
-                    ptr: fpeek.data(),
-                }
-                .to_string(),
-            )
-        } else {
-            None
-        };
-
-        let label_attr = field
-            .get_attr(Some("diagnostics"), "label")
-            .and_then(|a| Some(a.get_as::<&str>().unwrap().to_string()));
-
-        infos.push(FieldInfo {
-            name,
-            color,
-            span: span_meta,
-            display,
-            label: label_attr,
-        });
     }
 
     let alignment = if max_end_line == 0 {
@@ -113,86 +57,16 @@ pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredie
     };
     let spaces = " ".repeat(alignment);
 
-    // Render variant label now that we have field metadata available
-    if let Some(attr) = variant_label {
-        let label = attr.get_as::<&str>().unwrap();
-        let rendered = render_recursive(label, &infos);
-        eprintln!("{} {}", "Error:".bold().red(), rendered.bold());
+    if !report.message.is_empty() {
+        eprintln!(
+            "{} {}",
+            severity_prefix_colored(report.severity.as_ref()),
+            render_recursive(&report.message, &infos).bold()
+        );
     }
 
-    // Helper: render attribute-like strings with {field} and [text](field) links
-    let render_attr = |s: &str| {
-        let mut out = String::new();
+    let render_attr = |s: &str| render_recursive(s, &infos);
 
-        let mut chars = s.chars().peekable();
-
-        while let Some(ch) = chars.next() {
-            if ch == '{' {
-                let mut ident = String::new();
-                while let Some(&c) = chars.peek() {
-                    chars.next();
-                    if c == '}' {
-                        break;
-                    }
-                    ident.push(c);
-                }
-
-                if let Some(info) = infos.iter().find(|i| i.name == ident) {
-                    if let Some(span) = &info.span {
-                        if span.start <= span.end && span.end <= span.content.len() {
-                            let excerpt = &span.content[span.start..span.end];
-                            out.push_str(&format!("`{}`", excerpt));
-                        }
-                    } else if let Some(disp) = &info.display {
-                        out.push_str(disp);
-                    }
-                }
-            } else if ch == '[' {
-                let mut text = String::new();
-                while let Some(&c) = chars.peek() {
-                    chars.next();
-                    if c == ']' {
-                        break;
-                    }
-                    text.push(c);
-                }
-
-                if chars.peek() == Some(&'(') {
-                    chars.next();
-                    let mut link_ident = String::new();
-                    while let Some(&c) = chars.peek() {
-                        chars.next();
-                        if c == ')' {
-                            break;
-                        }
-                        link_ident.push(c);
-                    }
-
-                    if let Some(info) = infos.iter().find(|i| i.name == link_ident) {
-                        let styled = format!("{}", style(text).with(info.color));
-
-                        if let Some(span) = &info.span {
-                            let link = format!(
-                                "{}:{}:{}",
-                                span.file_name, span.start_line, span.start_col
-                            );
-                            out.push_str(&format_osc8_link(&link, &styled));
-                        } else {
-                            out.push_str(&styled);
-                        }
-                    }
-                } else {
-                    out.push_str(&text);
-                }
-            } else {
-                out.push(ch);
-            }
-        }
-
-        out
-    };
-
-    // Render codeblocks (for fields that are spans)
     for info in &infos {
         if let Some(span) = &info.span {
             let file_name = &span.file_name;
@@ -206,7 +80,7 @@ pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredie
                 "{spaces} ╭─[{}]",
                 style(format!(
                     "{}:{}:{}-{}:{}",
-                    file_name, start_line, start_col, end_line, end_col,
+                    file_name, start_line, start_col, end_line, end_col
                 ))
                 .cyan()
                 .dim(),
@@ -214,24 +88,23 @@ pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredie
 
             eprintln!("{spaces} │");
 
-            let line_start = start_line - 1;
-            let line_end = end_line - 1;
-
+            let line_start = start_line.saturating_sub(1);
+            let line_end = end_line.saturating_sub(1);
             let lines = content.lines().collect::<Vec<_>>();
-
-            let col_offset = start_col - 1;
-            let mut range_size = span.end - span.start;
+            let col_offset = start_col.saturating_sub(1);
+            let mut range_size = span.end.saturating_sub(span.start);
 
             let mut colored_lines = Vec::new();
 
             for line in line_start..=line_end {
-                let mut line_code = lines[line].to_string();
-                let end_range = cmp::min(line_code.len() - col_offset, range_size);
-
+                let mut line_code = lines.get(line).copied().unwrap_or("").to_string();
+                let line_len = line_code.len().saturating_sub(col_offset);
+                let end_range = cmp::min(line_len, range_size);
                 let line_range = col_offset..(col_offset + end_range);
 
                 if line != line_end {
-                    range_size -= end_range - col_offset - 1;
+                    range_size = range_size
+                        .saturating_sub(end_range.saturating_sub(col_offset).saturating_sub(1));
                 }
 
                 let content_fragment = style_with_color(&line_code[line_range.clone()], info.color);
@@ -241,7 +114,6 @@ pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredie
                 );
 
                 line_code.replace_range(line_range, &link);
-
                 colored_lines.push((line, line_code));
             }
 
@@ -250,9 +122,8 @@ pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredie
             }
 
             if let Some(lbl) = &info.label {
-                // print field label centered under the span (render placeholders inside the label)
                 let rendered = render_recursive(lbl, &infos);
-                let alignment_col = start_col + (end_col - start_col) / 2;
+                let alignment_col = start_col + (end_col.saturating_sub(start_col)) / 2;
                 eprintln!(
                     "{}",
                     rendered
@@ -278,10 +149,8 @@ pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredie
         }
     }
 
-    if let Some(attr) = variant_help {
-        let help = attr.get_as::<&str>().unwrap();
-
-        eprintln!("{spaces} ╧ {}", render_attr(help))
+    if let Some(help) = &report.help {
+        eprintln!("{spaces} ╧ {}", render_attr(help));
     }
 }
 
@@ -303,7 +172,9 @@ impl fmt::Display for FieldDisplay {
 }
 
 // Span and field metadata used by the renderer
+#[derive(Clone)]
 pub struct FieldSpan {
+    pub module_id: ModuleId,
     pub file_name: String,
     pub content: String,
     pub start: usize,
@@ -314,6 +185,7 @@ pub struct FieldSpan {
     pub end_col: usize,
 }
 
+#[derive(Clone)]
 pub struct FieldInfo {
     pub name: String,
     pub color: Color,
@@ -367,7 +239,11 @@ pub fn format_osc8_link(link: &str, content: &str) -> String {
 // content inside link text. Uses `FieldInfo` to resolve placeholders and
 // produce styled links when a span is available.
 pub fn render_recursive(src: &str, infos: &Vec<FieldInfo>) -> String {
-    fn parse_inner(chars: &mut Peekable<Chars<'_>>, infos: &Vec<FieldInfo>) -> String {
+    fn parse_inner(
+        chars: &mut Peekable<Chars<'_>>,
+        infos: &Vec<FieldInfo>,
+        stop_at_bracket: bool,
+    ) -> String {
         let mut out = String::new();
 
         while let Some(&ch) = chars.peek() {
@@ -419,7 +295,7 @@ pub fn render_recursive(src: &str, infos: &Vec<FieldInfo>) -> String {
                         chars.next(); // consume ']'
                         break;
                     }
-                    inner.push_str(&parse_inner(chars, infos));
+                    inner.push_str(&parse_inner(chars, infos, true));
                 }
 
                 // now expect '('link')' or just treat as plain text
@@ -451,7 +327,7 @@ pub fn render_recursive(src: &str, infos: &Vec<FieldInfo>) -> String {
                 } else {
                     out.push_str(&inner);
                 }
-            } else if ch == ']' || ch == ')' || ch == '}' {
+            } else if stop_at_bracket && ch == ']' {
                 // return to caller to handle closing bracket
                 break;
             } else {
@@ -465,10 +341,10 @@ pub fn render_recursive(src: &str, infos: &Vec<FieldInfo>) -> String {
 
     let mut chars = src.chars().peekable();
 
-    parse_inner(&mut chars, infos)
+    parse_inner(&mut chars, infos, false)
 }
 
-#[derive(Facet, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Report {
     /// The span at which the message applies.
     pub span: Span,
@@ -483,12 +359,14 @@ pub struct Report {
     /// An optional property to describe the error code.
     pub code_description: Option<String>,
 
-    /// A human-readable string describing the source of this
-    /// report, e.g. 'typescript' or 'super lint'.
-    pub source: Option<String>,
-
     /// The report's message.
     pub message: String,
+
+    /// Optional help text rendered below the body.
+    pub help: Option<String>,
+
+    /// Structured fields extracted from the diagnostic variant.
+    pub fields: Vec<FieldInfo>,
 
     /// An array of related report information, e.g. when symbol-names within
     /// a scope collide all definitions can be marked via this property.
@@ -541,19 +419,172 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
     db: &DB,
     graph: &impl ModuleGraph,
 ) -> Report {
-    // For now we just print directly, but eventually we want to convert the
-    // structured information into a Report that can be consumed by LSP or other
-    // clients.
-    print(t, db, graph);
+    let peek = Peek::new(t).into_enum().unwrap();
+    let variant = peek.active_variant().unwrap();
+
+    let variant_label = variant
+        .get_attr(Some("diagnostics"), "label")
+        .and_then(|attr| attr.get_as::<&str>())
+        .map(|attr| attr.to_string());
+
+    let variant_help = variant
+        .get_attr(Some("diagnostics"), "help")
+        .and_then(|attr| attr.get_as::<&str>())
+        .map(|attr| attr.to_string());
+
+    let variant_severity = variant
+        .get_attr(Some("diagnostics"), "severity")
+        .and_then(|attr| attr.get_as::<&str>())
+        .map(|attr| attr.to_string());
+
+    let mut infos = Vec::new();
+
+    for (field, fpeek) in peek.fields() {
+        let name = field.effective_name().to_string();
+
+        let mut span_meta = None;
+        if let Ok(span) = fpeek.get::<Span>() {
+            match *span {
+                Span::Known {
+                    start,
+                    end,
+                    module_id,
+                } => {
+                    let source = graph.get(module_id);
+                    let file_name = source.name(db).unwrap().to_string();
+                    let content = source.content(db).unwrap();
+
+                    let lookup = LineColLookup::new(&content);
+                    let (start_line, start_col) = lookup.get(start);
+                    let (end_line, end_col) = lookup.get(end);
+
+                    span_meta = Some(FieldSpan {
+                        module_id,
+                        file_name,
+                        content: content.to_string(),
+                        start,
+                        end,
+                        start_line,
+                        start_col,
+                        end_line,
+                        end_col,
+                    });
+                }
+                Span::Unknown => {}
+            }
+        }
+
+        let shape = field.shape();
+        let display = if shape.is_display() {
+            Some(
+                FieldDisplay {
+                    shape,
+                    ptr: fpeek.data(),
+                }
+                .to_string(),
+            )
+        } else {
+            None
+        };
+
+        let label_attr = field
+            .get_attr(Some("diagnostics"), "label")
+            .and_then(|attr| attr.get_as::<&str>())
+            .map(|attr| attr.to_string());
+
+        infos.push(FieldInfo {
+            name,
+            color: Color::Cyan,
+            span: span_meta,
+            display,
+            label: label_attr,
+        });
+    }
+
+    let message = variant_label
+        .as_deref()
+        .map(|label| render_recursive(label, &infos))
+        .unwrap_or_else(|| "diagnostic".to_string());
+
+    let help = variant_help
+        .as_deref()
+        .map(|help| render_recursive(help, &infos));
+
+    let severity = variant_severity.as_deref().and_then(|severity| {
+        match severity.to_ascii_lowercase().as_str() {
+            "error" => Some(ReportSeverity::Error),
+            "warning" => Some(ReportSeverity::Warning),
+            "information" | "info" => Some(ReportSeverity::Information),
+            "hint" => Some(ReportSeverity::Hint),
+            _ => None,
+        }
+    });
+
+    let span = infos
+        .iter()
+        .find_map(|info| info.span.as_ref())
+        .map(|span| {
+            Span::Known {
+                start: span.start,
+                end: span.end,
+                module_id: span.module_id,
+            }
+        })
+        .unwrap_or(Span::Unknown);
+
+    let related_information = {
+        let mut related = Vec::new();
+
+        for info in &infos {
+            if let Some(field_span) = &info.span {
+                if let Span::Known {
+                    start: primary_start,
+                    end: primary_end,
+                    module_id: primary_module_id,
+                } = span
+                {
+                    if field_span.start == primary_start
+                        && field_span.end == primary_end
+                        && field_span.module_id == primary_module_id
+                    {
+                        continue;
+                    }
+                }
+
+                let message = info
+                    .label
+                    .as_deref()
+                    .map(|label| render_recursive(label, &infos))
+                    .or_else(|| info.display.clone())
+                    .unwrap_or_else(|| info.name.clone());
+
+                related.push(ReportRelatedInformation {
+                    span: Span::Known {
+                        start: field_span.start,
+                        end: field_span.end,
+                        module_id: field_span.module_id,
+                    },
+                    message,
+                });
+            }
+        }
+
+        if related.is_empty() {
+            None
+        } else {
+            Some(related)
+        }
+    };
 
     Report {
-        span: Span::Unknown,
-        severity: None,
+        span,
+        severity,
         code: None,
         code_description: None,
-        source: None,
-        message: "See diagnostics for details".to_string(),
-        related_information: None,
+        message,
+        help,
+        fields: infos,
+        related_information,
         tags: None,
     }
 }

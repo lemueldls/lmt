@@ -40,11 +40,13 @@ fn publish_source_diagnostics(state: &ServerState, uri: Url, text: String) {
 
         let (_program, source_diagnostics) =
             parse_program_source_with_diagnostics(&text, module_id);
+        let graph_guard = graph.read();
+        let reports = source_diagnostics
+            .into_iter()
+            .map(|diag| diag.to_report(&*db, &*graph_guard))
+            .collect();
 
-        let lsp_diagnostics = {
-            let g = graph.read();
-            diagnostics::to_lsp_diagnostics(&*db, &*g, &text, source_diagnostics)
-        };
+        let lsp_diagnostics = diagnostics::to_lsp_diagnostics(&*db, &*graph_guard, reports);
 
         let _ = client.notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
             uri,

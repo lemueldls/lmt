@@ -40,7 +40,8 @@ pub enum Diagnostic {
 
 impl Diagnostic {
     pub fn print<DB: HasNamedSourceIngredient>(&self, db: &DB, graph: &impl ModuleGraph) {
-        report::print(self, db, graph)
+        let report = report::from_diagnostic(self, db, graph);
+        report::print(&report)
     }
 
     pub fn to_report<DB: HasNamedSourceIngredient>(
