@@ -1609,6 +1609,7 @@ version = "0.1.0-alpha.0"
 dependencies = [
  "anyhow",
  "cvc5-rs",
+ "lmt-diagnostics",
  "lmt-index",
  "lmt-syntax",
  "parking_lot",
@@ -1665,6 +1666,7 @@ dependencies = [
  "async-process",
  "futures",
  "lmt-checker",
+ "lmt-diagnostics",
  "lmt-syntax",
  "lsp-types",
  "parking_lot",

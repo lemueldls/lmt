@@ -52,14 +52,14 @@ async fn main() -> Result<()> {
         Command::Check { path } => {
             println!("Checking project at: {}", path);
 
-            let module_id = graph.register(&db, &path);
+            let module_id = graph.upsert_path(&db, &path);
             let source = graph.get(module_id);
             let (program, diagnostics) = parse_program(&db, *source).await?;
 
             dbg!(program);
 
             for diag in diagnostics {
-                diag.report(&db, &graph);
+                diag.print(&db, &graph);
             }
         }
         Command::Eval { expr } => {

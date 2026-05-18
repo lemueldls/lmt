@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
 use lmt_index::MappedRwLockReadGuard;
 
@@ -10,37 +10,73 @@ use crate::{
 
 pub struct FsGraph {
     pub files: ModuleMap<NamedSource>,
+    pub modules_by_name: HashMap<String, ModuleId>,
 }
 
 impl FsGraph {
     pub fn new() -> Self {
         Self {
             files: ModuleMap::new(),
+            modules_by_name: HashMap::new(),
         }
+    }
+
+    fn normalize_path(name: &str) -> String {
+        let working_path = std::env::current_dir().unwrap();
+        let path = working_path.join(name);
+        let path = path.canonicalize().unwrap();
+        path.to_str().unwrap().to_string()
     }
 }
 
 impl ModuleGraph for FsGraph {
-    fn register<DB: HasNamedSourceIngredient>(&mut self, db: &DB, name: &str) -> ModuleId {
-        let working_path = std::env::current_dir().unwrap();
-        let path = working_path.join(name);
-        let path = path.canonicalize().unwrap();
-        let path_str = path.to_str().unwrap();
+    fn upsert<DB: HasNamedSourceIngredient>(
+        &mut self,
+        db: &DB,
+        name: &str,
+        content: String,
+    ) -> ModuleId {
+        let normalized = Self::normalize_path(name);
 
-        let module_id = self.files.push_map(|module_id| {
-            NamedSource::new(
+        if let Some(module_id) = self.modules_by_name.get(&normalized).copied() {
+            let source = self.files.get_mut(module_id);
+            let source_name = source.name(db).unwrap().to_string();
+            db.named_source_data().set(
                 db,
-                format!("file://{path_str}"),
-                fs::read_to_string(path_str).unwrap(),
-                module_id,
-            )
-            .unwrap()
-        });
+                source.0,
+                NamedSource::new(db, source_name, content, module_id)
+                    .unwrap()
+                    .data(db)
+                    .unwrap(),
+            );
+
+            return module_id;
+        }
+
+        let uri = format!("file://{normalized}");
+        let module_id = self
+            .files
+            .push_map(|module_id| NamedSource::new(db, uri, content, module_id).unwrap());
+
+        self.modules_by_name.insert(normalized, module_id);
 
         module_id
     }
 
+    fn module_id(&self, name: &str) -> Option<ModuleId> {
+        let normalized = Self::normalize_path(name);
+        self.modules_by_name.get(&normalized).copied()
+    }
+
     fn get<'a>(&'a self, module_id: ModuleId) -> MappedRwLockReadGuard<'a, NamedSource> {
         self.files.get(module_id)
+    }
+}
+
+impl FsGraph {
+    pub fn upsert_path<DB: HasNamedSourceIngredient>(&mut self, db: &DB, name: &str) -> ModuleId {
+        let normalized = Self::normalize_path(name);
+        let content = fs::read_to_string(&normalized).unwrap();
+        self.upsert(db, &normalized, content)
     }
 }

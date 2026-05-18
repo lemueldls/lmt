@@ -28,11 +28,7 @@ mod tests {
 
         let content = "1 @@@ abc ; 2";
 
-        let module_id = graph.register(&db, "test.lmt");
-        // let source = graph.get(module_id);
-        graph
-            .set_content(&db, module_id, content.to_string())
-            .unwrap();
+        let module_id = graph.upsert(&db, "test.lmt", content.to_string());
 
         let program = parse_program_source(content, module_id);
         // expect at least one Error expr and later a LiteralInt(2)

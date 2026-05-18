@@ -1,7 +1,8 @@
+use diag::report;
 use facet::Facet;
 use lmt_diagnostics::{self as diag, Span, graph::ModuleGraph, source::HasNamedSourceIngredient};
 
-use crate::{TokenKind, token::TokenError};
+use crate::TokenKind;
 
 #[repr(u8)]
 #[derive(Facet, Debug, Clone, PartialEq)]
@@ -38,7 +39,15 @@ pub enum Diagnostic {
 }
 
 impl Diagnostic {
-    pub fn report<DB: HasNamedSourceIngredient>(&self, db: &DB, graph: &impl ModuleGraph) {
-        diag::report(self, db, graph)
+    pub fn print<DB: HasNamedSourceIngredient>(&self, db: &DB, graph: &impl ModuleGraph) {
+        report::print(self, db, graph)
+    }
+
+    pub fn to_report<DB: HasNamedSourceIngredient>(
+        &self,
+        db: &DB,
+        graph: &impl ModuleGraph,
+    ) -> report::Report {
+        report::from_diagnostic(self, db, graph)
     }
 }

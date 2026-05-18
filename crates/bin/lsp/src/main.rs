@@ -1,6 +1,6 @@
 mod client_builder;
 mod client_trait;
-// mod diagnostics;
+mod diagnostics;
 mod inspector;
 mod server_builder;
 mod server_trait;
@@ -13,15 +13,46 @@ use async_lsp::{
     concurrency::ConcurrencyLayer, panic::CatchUnwindLayer, router::Router, server::LifecycleLayer,
     tracing::TracingLayer,
 };
+use futures::future::BoxFuture;
+use lmt_diagnostics::graph::ModuleGraph;
+use lmt_syntax::parser::parse_program_source_with_diagnostics;
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DidSaveTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents,
     HoverParams, HoverProviderCapability, InitializeParams, InitializeResult, MarkedString, OneOf,
-    PublishDiagnosticsParams, ServerCapabilities, notification, request,
+    PublishDiagnosticsParams, ServerCapabilities, Url, notification,
 };
 use state::ServerState;
 use tower::ServiceBuilder;
 use tracing::Level;
+
+fn publish_source_diagnostics(state: &ServerState, uri: Url, text: String) {
+    let client = state.client.clone();
+    let db = state.db();
+    let graph = state.graph();
+    let source_name = uri.to_string();
+
+    tokio::spawn(async move {
+        let module_id = {
+            let mut g = graph.write();
+            g.upsert(&*db, &source_name, text.clone())
+        };
+
+        let (_program, source_diagnostics) =
+            parse_program_source_with_diagnostics(&text, module_id);
+
+        let lsp_diagnostics = {
+            let g = graph.read();
+            diagnostics::to_lsp_diagnostics(&*db, &*g, &text, source_diagnostics)
+        };
+
+        let _ = client.notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
+            uri,
+            diagnostics: lsp_diagnostics,
+            version: None,
+        });
+    });
+}
 
 /// LSP Server implementation using async-lsp Router pattern
 impl LanguageServer for ServerState {
@@ -31,7 +62,7 @@ impl LanguageServer for ServerState {
     fn initialize(
         &mut self,
         _params: InitializeParams,
-    ) -> futures::future::BoxFuture<'static, Result<InitializeResult, Self::Error>> {
+    ) -> BoxFuture<'static, Result<InitializeResult, Self::Error>> {
         Box::pin(async move {
             Ok(InitializeResult {
                 capabilities: ServerCapabilities {
@@ -53,15 +84,11 @@ impl LanguageServer for ServerState {
     fn hover(
         &mut self,
         params: HoverParams,
-    ) -> futures::future::BoxFuture<'static, Result<Option<Hover>, Self::Error>> {
-        let uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .clone();
+    ) -> BoxFuture<'static, Result<Option<Hover>, Self::Error>> {
+        let uri = &params.text_document_position_params.text_document.uri;
         let pos = params.text_document_position_params.position;
 
-        if let Some(_text) = self.get_document(&uri) {
+        if let Some(_text) = self.get_document(uri) {
             // TODO: Implement type inference for hover
             Box::pin(async move {
                 Ok(Some(Hover {
@@ -80,8 +107,7 @@ impl LanguageServer for ServerState {
     fn definition(
         &mut self,
         _params: GotoDefinitionParams,
-    ) -> futures::future::BoxFuture<'static, Result<Option<GotoDefinitionResponse>, Self::Error>>
-    {
+    ) -> BoxFuture<'static, Result<Option<GotoDefinitionResponse>, Self::Error>> {
         // TODO: Implement goto definition
         Box::pin(async move {
             Err(ResponseError::new(
@@ -89,6 +115,56 @@ impl LanguageServer for ServerState {
                 "Go to definition not yet implemented",
             ))
         })
+    }
+
+    fn did_open(&mut self, params: DidOpenTextDocumentParams) -> Self::NotifyResult {
+        let uri = params.text_document.uri.clone();
+        let text = params.text_document.text.clone();
+
+        // Store document
+        self.insert_document(uri.clone(), text.clone());
+        publish_source_diagnostics(self, uri, text);
+
+        ControlFlow::Continue(())
+    }
+
+    fn did_change(&mut self, params: DidChangeTextDocumentParams) -> Self::NotifyResult {
+        let uri = params.text_document.uri.clone();
+
+        // Update document with full text (FULL sync)
+        if let Some(change) = params.content_changes.first() {
+            self.insert_document(uri.clone(), change.text.clone());
+            publish_source_diagnostics(self, uri, change.text.clone());
+        }
+
+        ControlFlow::Continue(())
+    }
+
+    fn did_save(&mut self, params: DidSaveTextDocumentParams) -> Self::NotifyResult {
+        let uri = params.text_document.uri.clone();
+
+        // Re-check and publish diagnostics on save (use stored document content)
+        if let Some(text) = self.get_document(&uri) {
+            publish_source_diagnostics(self, uri, text);
+        }
+
+        ControlFlow::Continue(())
+    }
+
+    fn did_close(&mut self, params: DidCloseTextDocumentParams) -> Self::NotifyResult {
+        let uri = params.text_document.uri.clone();
+
+        // Remove document and clear diagnostics
+        self.remove_document(&uri);
+        let _ = self
+            .client
+            .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
+                uri,
+                diagnostics: Vec::new(),
+                version: None,
+            });
+
+        ControlFlow::Continue(())
     }
 }
 
@@ -101,99 +177,11 @@ async fn main() {
         .init();
 
     let (server, _) = async_lsp::MainLoop::new_server(|client| {
-        let mut router = Router::from_language_server(ServerState::new(client.clone()));
+        let router = Router::from_language_server(ServerState::new(client.clone()));
 
-        router
-            .notification::<notification::DidOpenTextDocument>(|state, params| {
-                let uri = params.text_document.uri.clone();
-                let text = params.text_document.text.clone();
-
-                // Store document
-                state.insert_document(uri.clone(), text.clone());
-
-                // // Check and publish diagnostics
-                // if let Some(path) = uri
-                //     .to_file_path()
-                //     .ok()
-                //     .and_then(|p| p.to_str().map(String::from))
-                // {
-                //     let checker_diags = lmt_checker::check_text(&path, &text);
-                //     let lsp_diags = diagnostics::to_lsp_diagnostics(&text, checker_diags);
-
-                //     let client = state.client.clone();
-                //     client
-                //         .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
-                //             uri: uri.clone(),
-                //             diagnostics: lsp_diags,
-                //             version: None,
-                //         })
-                //         .unwrap();
-                // }
-
-                ControlFlow::Continue(())
-            })
-            .notification::<notification::DidChangeTextDocument>(|state, params| {
-                let uri = params.text_document.uri.clone();
-
-                // Update document with full text (FULL sync)
-                if let Some(change) = params.content_changes.first() {
-                    state.insert_document(uri.clone(), change.text.clone());
-
-                    // // Check and publish diagnostics (debounced in production)
-                    // if let Some(path) = uri
-                    //     .to_file_path()
-                    //     .ok()
-                    //     .and_then(|p| p.to_str().map(String::from))
-                    // {
-                    //     let checker_diags = lmt_checker::check_text(&path, &change.text);
-                    //     let lsp_diags =
-                    //         diagnostics::to_lsp_diagnostics(&change.text, checker_diags);
-
-                    //     let client = state.client.clone();
-                    //     client
-                    //         .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
-                    //             uri,
-                    //             diagnostics: lsp_diags,
-                    //             version: None,
-                    //         })
-                    //         .unwrap();
-                    // }
-                }
-
-                ControlFlow::Continue(())
-            })
-            .notification::<notification::DidSaveTextDocument>(|state, params| {
-                let uri = params.text_document.uri.clone();
-
-                // // Re-check and publish diagnostics on save
-                // if let Some(text) = state.get_document(&uri) {
-                //     if let Some(path) = uri
-                //         .to_file_path()
-                //         .ok()
-                //         .and_then(|p| p.to_str().map(String::from))
-                //     {
-                //         let checker_diags = lmt_checker::check_text(&path, &text);
-                //         let lsp_diags = diagnostics::to_lsp_diagnostics(&text, checker_diags);
-
-                //         let client = state.client.clone();
-                //         client
-                //             .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
-                //                 uri,
-                //                 diagnostics: lsp_diags,
-                //                 version: None,
-                //             })
-                //             .unwrap();
-                //     }
-                // }
-
-                ControlFlow::Continue(())
-            })
-            .notification::<notification::DidCloseTextDocument>(|state, params| {
-                state.remove_document(&params.text_document.uri);
-                ControlFlow::Continue(())
-            })
-            .notification::<notification::Initialized>(|_, _| ControlFlow::Continue(()))
-            .notification::<notification::DidChangeConfiguration>(|_, _| ControlFlow::Continue(()));
+        // router
+        //     .notification::<notification::Initialized>(|_, _| ControlFlow::Continue(()))
+        //     .notification::<notification::DidChangeConfiguration>(|_, _| ControlFlow::Continue(()));
 
         ServiceBuilder::new()
             .layer(TracingLayer::default())
@@ -210,6 +198,7 @@ async fn main() {
         async_lsp::stdio::PipeStdin::lock_tokio().unwrap(),
         async_lsp::stdio::PipeStdout::lock_tokio().unwrap(),
     );
+
     // Fallback to spawn blocking read/write otherwise.
     #[cfg(not(unix))]
     let (stdin, stdout) = (

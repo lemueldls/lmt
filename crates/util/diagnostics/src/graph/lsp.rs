@@ -8,12 +8,14 @@ use crate::{
     source::{HasNamedSourceIngredient, NamedSource},
 };
 
-pub struct VirtualGraph {
+/// Graph specialized for editor/LSP workflows where the same document is
+/// updated frequently by URI.
+pub struct LspGraph {
     pub files: ModuleMap<NamedSource>,
     pub modules_by_name: HashMap<String, ModuleId>,
 }
 
-impl VirtualGraph {
+impl LspGraph {
     pub fn new() -> Self {
         Self {
             files: ModuleMap::new(),
@@ -30,7 +32,7 @@ impl VirtualGraph {
     }
 }
 
-impl ModuleGraph for VirtualGraph {
+impl ModuleGraph for LspGraph {
     fn upsert<DB: HasNamedSourceIngredient>(
         &mut self,
         db: &DB,

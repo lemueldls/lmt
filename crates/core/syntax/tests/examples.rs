@@ -27,8 +27,7 @@ fn render_case(src: &str) -> String {
     let db = Database::new();
     let mut graph = VirtualGraph::new();
 
-    let module_id = graph.register(&db, "test.lmt");
-    graph.set_content(&db, module_id, src.to_string()).unwrap();
+    let module_id = graph.upsert(&db, "test.lmt", src.to_string());
 
     let program = parse_program_source(src, module_id);
     format!(

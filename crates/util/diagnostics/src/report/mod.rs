@@ -9,7 +9,7 @@ use rand::{rng, seq::SliceRandom};
 
 use crate::{Span, graph::ModuleGraph, source::HasNamedSourceIngredient};
 
-pub fn report<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredient>(
+pub fn print<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredient>(
     t: &'mem T,
     db: &DB,
     graph: &impl ModuleGraph,
@@ -466,4 +466,94 @@ pub fn render_recursive(src: &str, infos: &Vec<FieldInfo>) -> String {
     let mut chars = src.chars().peekable();
 
     parse_inner(&mut chars, infos)
+}
+
+#[derive(Facet, Clone, PartialEq, Eq)]
+pub struct Report {
+    /// The span at which the message applies.
+    pub span: Span,
+
+    /// The report's severity. Can be omitted. If omitted it is up to the
+    /// client to interpret reports as error, warning, info or hint.
+    pub severity: Option<ReportSeverity>,
+
+    /// The report's code. Can be omitted.
+    pub code: Option<String>,
+
+    /// An optional property to describe the error code.
+    pub code_description: Option<String>,
+
+    /// A human-readable string describing the source of this
+    /// report, e.g. 'typescript' or 'super lint'.
+    pub source: Option<String>,
+
+    /// The report's message.
+    pub message: String,
+
+    /// An array of related report information, e.g. when symbol-names within
+    /// a scope collide all definitions can be marked via this property.
+    pub related_information: Option<Vec<ReportRelatedInformation>>,
+
+    /// Additional metadata about the report.
+    pub tags: Option<Vec<ReportTag>>,
+}
+
+#[repr(u8)]
+#[derive(Facet, Clone, PartialEq, Eq)]
+pub enum ReportSeverity {
+    /// Reports an error.
+    Error,
+    /// Reports a warning.
+    Warning,
+    /// Reports an information.
+    Information,
+    /// Reports a hint.
+    Hint,
+}
+
+#[repr(u8)]
+#[derive(Facet, Clone, PartialEq, Eq)]
+pub enum ReportTag {
+    /// Unused or unnecessary code.
+    /// Clients are allowed to render diagnostics with this tag faded out instead of having
+    /// an error squiggle.
+    Unnecessary,
+
+    /// Deprecated or obsolete code.
+    /// Clients are allowed to rendered diagnostics with this tag strike through.
+    Deprecated,
+}
+
+/// Represents a related message and source code location for a diagnostic. This
+/// should be used to point to code locations that cause or related to a
+/// diagnostics, e.g when duplicating a symbol in a scope.
+#[derive(Facet, Clone, PartialEq, Eq)]
+pub struct ReportRelatedInformation {
+    /// The span of this related diagnostic information.
+    pub span: Span,
+
+    /// The message of this related diagnostic information.
+    pub message: String,
+}
+
+pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredient>(
+    t: &'mem T,
+    db: &DB,
+    graph: &impl ModuleGraph,
+) -> Report {
+    // For now we just print directly, but eventually we want to convert the
+    // structured information into a Report that can be consumed by LSP or other
+    // clients.
+    print(t, db, graph);
+
+    Report {
+        span: Span::Unknown,
+        severity: None,
+        code: None,
+        code_description: None,
+        source: None,
+        message: "See diagnostics for details".to_string(),
+        related_information: None,
+        tags: None,
+    }
 }
