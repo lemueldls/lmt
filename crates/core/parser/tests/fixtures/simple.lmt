@@ -1,3 +1,0 @@
-let Nat = Int | it >= 0
-let inc(x: Int): (res: Int | res >= 0)
-assert 1 + 1 == 2

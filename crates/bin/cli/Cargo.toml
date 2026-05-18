@@ -17,13 +17,15 @@ name = "lmt"
 path = "src/main.rs"
 
 [dependencies]
+
+lmt-checker.workspace = true
+lmt-diagnostics.workspace = true
+lmt-syntax.workspace = true
+
 anyhow.workspace = true
 facet.workspace = true
 figue.workspace = true
 tokio.workspace = true
-
-lmt-checker = { path = "../../core/checker" }
-lmt-parser = { path = "../../core/parser" }
 
 [lints]
 workspace = true

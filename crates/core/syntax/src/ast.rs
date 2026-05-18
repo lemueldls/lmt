@@ -1,14 +1,14 @@
 use facet::Facet;
 
 #[repr(u8)]
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub enum UnaryOp {
     Neg,
     Not,
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub enum BinaryOp {
     FieldAccess,
     Power,
@@ -31,7 +31,7 @@ pub enum BinaryOp {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub enum Expr {
     LiteralInt(i64),
     LiteralReal(f64),
@@ -83,37 +83,37 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
-    Error(String),
+    Error,
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub enum Statement {
     Let(LetDecl),
     Use(UseDecl),
     Expr(Expr),
 }
 
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub struct LetDecl {
     pub name: String,
     pub annotation: Option<Expr>,
     pub value: Option<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub struct UseDecl {
     pub path: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: Pattern,
     pub body: Expr,
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub enum Pattern {
     LiteralInt(i64),
     LiteralReal(f64),
@@ -122,10 +122,10 @@ pub enum Pattern {
     Ident(String),
     Variant { name: String, args: Vec<Pattern> },
     Wildcard,
-    Error(String),
+    Error,
 }
 
-#[derive(Debug, Clone, PartialEq, Facet)]
+#[derive(Facet, Debug, Clone, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
 }

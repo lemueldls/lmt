@@ -1,18 +1,30 @@
+use lmt_diagnostics::{ModuleId, Span, source::NamedSource};
+use picante::PicanteResult;
+
 use crate::{
     ast::{Expr, LetDecl, MatchArm, Pattern, Program, Statement, UseDecl},
-    db::tokenize_source,
-    token::{Span, Token, TokenKind},
+    db::{DatabaseTrait, tokenize},
+    diagnostic::Diagnostic,
+    lexer::tokenize_with_diagnostics,
+    token::{Token, TokenKind},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    diagnostics: Vec<Diagnostic>,
+    module_id: ModuleId,
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+    fn new(tokens: Vec<Token>, module_id: ModuleId) -> Self {
+        Self {
+            tokens,
+            pos: 0,
+            diagnostics: Vec::new(),
+            module_id,
+        }
     }
 
     fn peek_kind(&self) -> &TokenKind {
@@ -48,9 +60,20 @@ impl Parser {
     }
 
     fn mark_span_from(&self, start_idx: usize, end_idx: usize) -> Span {
-        let start = self.tokens[start_idx].span.start;
-        let end = self.tokens[end_idx].span.end;
-        Span { start, end }
+        let start = self.tokens[start_idx].span.start().unwrap();
+        let end = self.tokens[end_idx].span.end().unwrap();
+
+        Span::new(start, end, self.module_id)
+    }
+
+    fn current_token_span(&self) -> Span {
+        if self.tokens.is_empty() {
+            return Span::new(0, 0, self.module_id);
+        }
+
+        let idx = self.pos.min(self.tokens.len().saturating_sub(1));
+
+        self.tokens[idx].span.clone()
     }
 
     fn parse_program(&mut self) -> Vec<(Statement, Span)> {
@@ -123,6 +146,7 @@ impl Parser {
                 if matches!(self.peek_kind(), TokenKind::Semi) {
                     self.bump();
                 }
+
                 Some(Statement::Expr(expr))
             }
         };
@@ -134,6 +158,7 @@ impl Parser {
                 self.pos.saturating_sub(1)
             };
             let span = self.mark_span_from(start_idx, end_idx);
+
             Some((stmt, span))
         } else {
             None
@@ -165,6 +190,7 @@ impl Parser {
                 right: Box::new(right),
             };
         }
+
         left
     }
 
@@ -178,6 +204,7 @@ impl Parser {
                 right: Box::new(right),
             };
         }
+
         left
     }
 
@@ -211,6 +238,7 @@ impl Parser {
                 predicate: Box::new(predicate),
             };
         }
+
         left
     }
 
@@ -237,6 +265,7 @@ impl Parser {
             }
             break;
         }
+
         left
     }
 
@@ -281,6 +310,7 @@ impl Parser {
             }
             break;
         }
+
         left
     }
 
@@ -307,6 +337,7 @@ impl Parser {
             }
             break;
         }
+
         left
     }
 
@@ -342,6 +373,7 @@ impl Parser {
             }
             break;
         }
+
         left
     }
 
@@ -355,6 +387,7 @@ impl Parser {
                 right: Box::new(right),
             };
         }
+
         left
     }
 
@@ -369,6 +402,7 @@ impl Parser {
                 right: Box::new(right),
             };
         }
+
         left
     }
 
@@ -387,6 +421,7 @@ impl Parser {
                 expr: Box::new(expr),
             };
         }
+
         self.parse_postfix()
     }
 
@@ -428,7 +463,10 @@ impl Parser {
                         };
                     } else {
                         // unexpected, create error and stop
-                        expr = Expr::Error("expected field after '.'".to_string());
+                        let span = self.current_token_span();
+                        self.diagnostics.push(Diagnostic::ExpectedField { span });
+                        expr = Expr::Error;
+
                         break;
                     }
                 }
@@ -444,24 +482,29 @@ impl Parser {
             TokenKind::Int(n) => {
                 let v = *n;
                 self.bump();
+
                 Expr::LiteralInt(v)
             }
             TokenKind::Real(f) => {
                 let v = *f;
                 self.bump();
+
                 Expr::LiteralReal(v)
             }
             TokenKind::String(s) => {
                 let v = s.clone();
                 self.bump();
+
                 Expr::LiteralString(v)
             }
             TokenKind::True => {
                 self.bump();
+
                 Expr::LiteralBool(true)
             }
             TokenKind::False => {
                 self.bump();
+
                 Expr::LiteralBool(false)
             }
             TokenKind::Hole => {
@@ -470,11 +513,13 @@ impl Parser {
             }
             TokenKind::DoubleHole => {
                 self.bump();
+
                 Expr::Hole
             }
             TokenKind::Ident(name) => {
                 let n = name.clone();
                 self.bump();
+
                 Expr::Var(n)
             }
             TokenKind::LParen => {
@@ -483,6 +528,7 @@ impl Parser {
                 if matches!(self.peek_kind(), TokenKind::RParen) {
                     self.bump();
                 }
+
                 inner
             }
             TokenKind::LBrace => {
@@ -497,15 +543,18 @@ impl Parser {
                         self.bump();
                     }
                 }
+
                 // optional tail expr
                 let tail = if !matches!(self.peek_kind(), TokenKind::RBrace) {
                     Some(Box::new(self.parse_verification_expr()))
                 } else {
                     None
                 };
+
                 if matches!(self.peek_kind(), TokenKind::RBrace) {
                     self.bump();
                 }
+
                 Expr::Block { statements, tail }
             }
             TokenKind::If => {
@@ -513,10 +562,12 @@ impl Parser {
                 let condition = Box::new(self.parse_verification_expr());
                 let then_branch = Box::new(self.parse_primary());
                 let mut else_branch = None;
+
                 if self.consume_if(&TokenKind::Else) {
                     // else can be block or if (handled by parse_primary)
                     else_branch = Some(Box::new(self.parse_primary()));
                 }
+
                 Expr::If {
                     condition,
                     then_branch,
@@ -530,6 +581,7 @@ impl Parser {
                 if matches!(self.peek_kind(), TokenKind::LBrace) {
                     self.bump();
                 }
+
                 while !matches!(self.peek_kind(), TokenKind::RBrace | TokenKind::EOF) {
                     let pat = self.parse_pattern();
                     if matches!(self.peek_kind(), TokenKind::FatArrow)
@@ -537,6 +589,7 @@ impl Parser {
                     {
                         self.bump();
                     }
+
                     let body = if matches!(self.peek_kind(), TokenKind::LBrace) {
                         // block
                         match self.parse_primary() {
@@ -546,15 +599,18 @@ impl Parser {
                     } else {
                         self.parse_verification_expr()
                     };
+
                     // optional comma
                     if matches!(self.peek_kind(), TokenKind::Comma) {
                         self.bump();
                     }
                     arms.push(MatchArm { pattern: pat, body });
                 }
+
                 if matches!(self.peek_kind(), TokenKind::RBrace) {
                     self.bump();
                 }
+
                 Expr::Match { scrutinee, arms }
             }
             TokenKind::Dot => {
@@ -577,16 +633,25 @@ impl Parser {
                             self.bump();
                         }
                     }
+
                     Expr::Variant { name, args }
                 } else {
-                    Expr::Error("expected variant name".to_string())
+                    let span = self.current_token_span();
+                    self.diagnostics
+                        .push(Diagnostic::ExpectedVariantName { span });
+
+                    Expr::Error
                 }
             }
             _ => {
                 // unexpected token
-                let msg = format!("unexpected token in primary: {:?}", self.peek_kind());
+                let span = self.current_token_span();
+                let kind = self.peek_kind().clone();
+                self.diagnostics
+                    .push(Diagnostic::UnexpectedToken { kind, span });
                 self.bump();
-                Expr::Error(msg)
+
+                Expr::Error
             }
         }
     }
@@ -596,24 +661,29 @@ impl Parser {
             TokenKind::Int(n) => {
                 let v = *n;
                 self.bump();
+
                 Pattern::LiteralInt(v)
             }
             TokenKind::Real(f) => {
                 let v = *f;
                 self.bump();
+
                 Pattern::LiteralReal(v)
             }
             TokenKind::String(s) => {
                 let v = s.clone();
                 self.bump();
+
                 Pattern::LiteralString(v)
             }
             TokenKind::True => {
                 self.bump();
+
                 Pattern::LiteralBool(true)
             }
             TokenKind::False => {
                 self.bump();
+
                 Pattern::LiteralBool(false)
             }
             TokenKind::Ident(name) => {
@@ -644,26 +714,71 @@ impl Parser {
                             self.bump();
                         }
                     }
+
                     Pattern::Variant { name, args }
                 } else {
-                    Pattern::Error("expected variant in pattern".to_string())
+                    let span = self.current_token_span();
+                    self.diagnostics
+                        .push(Diagnostic::ExpectedVariantInPattern { span });
+
+                    Pattern::Error
                 }
             }
 
             _ => {
+                let span = self.current_token_span();
+                self.diagnostics
+                    .push(Diagnostic::UnexpectedPattern { span });
                 self.bump();
-                Pattern::Error("unexpected pattern".to_string())
+
+                Pattern::Error
             }
         }
     }
 }
 
-pub fn parse_program(src: &str) -> Program {
-    let tokens = tokenize_source(src);
-    let mut p = Parser::new(tokens);
+pub async fn parse_program<DB: DatabaseTrait>(
+    db: &DB,
+    source: NamedSource,
+) -> PicanteResult<(Program, Vec<Diagnostic>)> {
+    let tokens = tokenize(db, source).await?;
+    let mut diagnostics = Vec::new();
+    for token in &tokens {
+        if let TokenKind::Error(error) = &token.kind {
+            diagnostics.push(error.diagnostic(token.span));
+        }
+    }
+
+    let module_id = source.module_id(db)?;
+    let mut p = Parser::new(tokens, module_id);
     let stmts = p.parse_program();
 
     // convert statements+spans into Program
     let statements = stmts.into_iter().map(|(stmt, _span)| stmt).collect();
-    Program { statements }
+
+    diagnostics.extend(p.diagnostics);
+
+    Ok((Program { statements }, diagnostics))
+}
+
+pub fn parse_program_source_with_diagnostics(
+    src: &str,
+    module_id: ModuleId,
+) -> (Program, Vec<Diagnostic>) {
+    let (tokens, mut diagnostics) = tokenize_with_diagnostics(src, module_id);
+
+    let mut p = Parser::new(tokens, module_id);
+    let stmts = p.parse_program();
+
+    // convert statements+spans into Program
+    let statements = stmts.into_iter().map(|(stmt, _span)| stmt).collect();
+    diagnostics.extend(p.diagnostics);
+
+    (Program { statements }, diagnostics)
+}
+
+pub fn parse_program_source(src: &str, module_id: ModuleId) -> Program {
+    let (program, _) = parse_program_source_with_diagnostics(src, module_id);
+
+    program
 }

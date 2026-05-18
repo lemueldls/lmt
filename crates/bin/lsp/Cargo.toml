@@ -12,6 +12,10 @@ keywords.workspace = true
 readme.workspace = true
 
 [dependencies]
+
+lmt-checker.workspace = true
+lmt-syntax.workspace = true
+
 anyhow.workspace = true
 async-lsp.workspace = true
 async-process.workspace = true
@@ -24,9 +28,6 @@ tower.workspace = true
 tower-service.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-
-lmt-checker = { path = "../../core/checker" }
-lmt-parser = { path = "../../core/parser" }
 
 [lints]
 workspace = true

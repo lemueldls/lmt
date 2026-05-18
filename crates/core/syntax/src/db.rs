@@ -1,29 +1,30 @@
+use lmt_diagnostics::{ModuleId, source::*};
 use picante::PicanteResult;
 
 use crate::{
-    input::{
-        HasSourceFileIngredient, SourceFile, SourceFileDataIngredient, SourceFileKeysIngredient,
-        make_source_file_data, make_source_file_keys,
-    },
     lexer::Lexer,
     token::{Token, TokenKind},
 };
 
-#[picante::db(inputs(SourceFile), tracked(tokenize, tokenize_window))]
+#[picante::db(inputs(NamedSource), tracked(tokenize, tokenize_window))]
 pub struct Database {}
 
 #[picante::tracked]
-pub async fn tokenize<DB: DatabaseTrait>(db: &DB, file: SourceFile) -> PicanteResult<Vec<Token>> {
-    let content = file.content(db)?;
+pub async fn tokenize<DB: DatabaseTrait>(
+    db: &DB,
+    source: NamedSource,
+) -> PicanteResult<Vec<Token>> {
+    let content = source.content(db)?;
+    let module_id = source.module_id(db)?;
 
-    Ok(tokenize_source(&content))
+    Ok(tokenize_source(&content, module_id))
 }
 
-pub fn tokenize_source(content: &str) -> Vec<Token> {
+pub fn tokenize_source(content: &str, module_id: ModuleId) -> Vec<Token> {
     let mut tokens = Vec::new();
 
-    for (start, end) in token_windows(content) {
-        let mut window_tokens = tokenize_source_window(content, start, end);
+    for (start, end) in token_windows(content, module_id) {
+        let mut window_tokens = tokenize_source_window(content, start, end, module_id);
 
         if matches!(
             window_tokens.last().map(|token| &token.kind),
@@ -35,7 +36,12 @@ pub fn tokenize_source(content: &str) -> Vec<Token> {
         tokens.extend(window_tokens);
     }
 
-    tokens.push(Token::new(TokenKind::EOF, content.len(), content.len()));
+    tokens.push(Token::new(
+        TokenKind::EOF,
+        content.len(),
+        content.len(),
+        module_id,
+    ));
 
     tokens
 }
@@ -43,16 +49,22 @@ pub fn tokenize_source(content: &str) -> Vec<Token> {
 #[picante::tracked]
 pub async fn tokenize_window<DB: DatabaseTrait>(
     db: &DB,
-    file: SourceFile,
+    source: NamedSource,
     start: usize,
     end: usize,
 ) -> PicanteResult<Vec<Token>> {
-    let content = file.content(db)?;
+    let content = source.content(db)?;
+    let module_id = source.module_id(db)?;
 
-    Ok(tokenize_source_window(&content, start, end))
+    Ok(tokenize_source_window(&content, start, end, module_id))
 }
 
-fn tokenize_source_window(content: &str, start: usize, end: usize) -> Vec<Token> {
+fn tokenize_source_window(
+    content: &str,
+    start: usize,
+    end: usize,
+    module_id: ModuleId,
+) -> Vec<Token> {
     let start = start.min(content.len());
     let end = end.min(content.len());
 
@@ -60,13 +72,12 @@ fn tokenize_source_window(content: &str, start: usize, end: usize) -> Vec<Token>
         return Vec::new();
     }
 
-    let mut lexer = Lexer::new(&content[start..end]);
+    let mut lexer = Lexer::new(&content[start..end], module_id);
     let mut tokens = Vec::new();
 
     loop {
         let mut token = lexer.next_token();
-        token.span.start += start;
-        token.span.end += start;
+        token.span = token.span.offset(start);
 
         let is_eof = matches!(token.kind, TokenKind::EOF);
         tokens.push(token);
@@ -79,9 +90,9 @@ fn tokenize_source_window(content: &str, start: usize, end: usize) -> Vec<Token>
     tokens
 }
 
-fn token_windows(content: &str) -> Vec<(usize, usize)> {
+fn token_windows(content: &str, module_id: ModuleId) -> Vec<(usize, usize)> {
     let mut windows = Vec::new();
-    let mut lexer = Lexer::new(content);
+    let mut lexer = Lexer::new(content, module_id);
     let mut window_start = 0usize;
     let mut brace_depth = 0usize;
     let mut paren_depth = 0usize;
@@ -89,7 +100,7 @@ fn token_windows(content: &str) -> Vec<(usize, usize)> {
 
     loop {
         let token = lexer.next_token();
-        let window_end = token.span.end;
+        let window_end = token.span.end().unwrap();
 
         match token.kind {
             TokenKind::LBrace => brace_depth = brace_depth.saturating_add(1),

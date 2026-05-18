@@ -1,6 +1,6 @@
 mod client_builder;
 mod client_trait;
-mod diagnostics;
+// mod diagnostics;
 mod inspector;
 mod server_builder;
 mod server_trait;
@@ -111,24 +111,24 @@ async fn main() {
                 // Store document
                 state.insert_document(uri.clone(), text.clone());
 
-                // Check and publish diagnostics
-                if let Some(path) = uri
-                    .to_file_path()
-                    .ok()
-                    .and_then(|p| p.to_str().map(String::from))
-                {
-                    let checker_diags = lmt_checker::check_text(&path, &text);
-                    let lsp_diags = diagnostics::to_lsp_diagnostics(&text, checker_diags);
+                // // Check and publish diagnostics
+                // if let Some(path) = uri
+                //     .to_file_path()
+                //     .ok()
+                //     .and_then(|p| p.to_str().map(String::from))
+                // {
+                //     let checker_diags = lmt_checker::check_text(&path, &text);
+                //     let lsp_diags = diagnostics::to_lsp_diagnostics(&text, checker_diags);
 
-                    let client = state.client.clone();
-                    client
-                        .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
-                            uri: uri.clone(),
-                            diagnostics: lsp_diags,
-                            version: None,
-                        })
-                        .unwrap();
-                }
+                //     let client = state.client.clone();
+                //     client
+                //         .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
+                //             uri: uri.clone(),
+                //             diagnostics: lsp_diags,
+                //             version: None,
+                //         })
+                //         .unwrap();
+                // }
 
                 ControlFlow::Continue(())
             })
@@ -139,25 +139,25 @@ async fn main() {
                 if let Some(change) = params.content_changes.first() {
                     state.insert_document(uri.clone(), change.text.clone());
 
-                    // Check and publish diagnostics (debounced in production)
-                    if let Some(path) = uri
-                        .to_file_path()
-                        .ok()
-                        .and_then(|p| p.to_str().map(String::from))
-                    {
-                        let checker_diags = lmt_checker::check_text(&path, &change.text);
-                        let lsp_diags =
-                            diagnostics::to_lsp_diagnostics(&change.text, checker_diags);
+                    // // Check and publish diagnostics (debounced in production)
+                    // if let Some(path) = uri
+                    //     .to_file_path()
+                    //     .ok()
+                    //     .and_then(|p| p.to_str().map(String::from))
+                    // {
+                    //     let checker_diags = lmt_checker::check_text(&path, &change.text);
+                    //     let lsp_diags =
+                    //         diagnostics::to_lsp_diagnostics(&change.text, checker_diags);
 
-                        let client = state.client.clone();
-                        client
-                            .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
-                                uri,
-                                diagnostics: lsp_diags,
-                                version: None,
-                            })
-                            .unwrap();
-                    }
+                    //     let client = state.client.clone();
+                    //     client
+                    //         .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
+                    //             uri,
+                    //             diagnostics: lsp_diags,
+                    //             version: None,
+                    //         })
+                    //         .unwrap();
+                    // }
                 }
 
                 ControlFlow::Continue(())
@@ -165,26 +165,26 @@ async fn main() {
             .notification::<notification::DidSaveTextDocument>(|state, params| {
                 let uri = params.text_document.uri.clone();
 
-                // Re-check and publish diagnostics on save
-                if let Some(text) = state.get_document(&uri) {
-                    if let Some(path) = uri
-                        .to_file_path()
-                        .ok()
-                        .and_then(|p| p.to_str().map(String::from))
-                    {
-                        let checker_diags = lmt_checker::check_text(&path, &text);
-                        let lsp_diags = diagnostics::to_lsp_diagnostics(&text, checker_diags);
+                // // Re-check and publish diagnostics on save
+                // if let Some(text) = state.get_document(&uri) {
+                //     if let Some(path) = uri
+                //         .to_file_path()
+                //         .ok()
+                //         .and_then(|p| p.to_str().map(String::from))
+                //     {
+                //         let checker_diags = lmt_checker::check_text(&path, &text);
+                //         let lsp_diags = diagnostics::to_lsp_diagnostics(&text, checker_diags);
 
-                        let client = state.client.clone();
-                        client
-                            .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
-                                uri,
-                                diagnostics: lsp_diags,
-                                version: None,
-                            })
-                            .unwrap();
-                    }
-                }
+                //         let client = state.client.clone();
+                //         client
+                //             .notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
+                //                 uri,
+                //                 diagnostics: lsp_diags,
+                //                 version: None,
+                //             })
+                //             .unwrap();
+                //     }
+                // }
 
                 ControlFlow::Continue(())
             })

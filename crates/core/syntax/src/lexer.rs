@@ -1,20 +1,30 @@
-use crate::token::{Token, TokenKind};
+use lmt_diagnostics::ModuleId;
+
+use crate::{
+    diagnostic::Diagnostic,
+    token::{Token, TokenError, TokenKind},
+};
 
 pub struct Lexer<'a> {
     input: &'a str,
     pos: usize,
+    module_id: ModuleId,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self { input, pos: 0 }
+    pub fn new(input: &'a str, module_id: ModuleId) -> Self {
+        Self {
+            input,
+            pos: 0,
+            module_id,
+        }
     }
 
     pub fn next_token(&mut self) -> Token {
         self.skip_trivia();
 
         if self.pos >= self.input.len() {
-            return Token::new(TokenKind::EOF, self.pos, self.pos);
+            return Token::new(TokenKind::EOF, self.pos, self.pos, self.module_id);
         }
 
         let start = self.pos;
@@ -40,9 +50,9 @@ impl<'a> Lexer<'a> {
             '?' => {
                 self.pos += 1;
                 if self.match_char('?') {
-                    Token::new(TokenKind::DoubleHole, start, self.pos)
+                    Token::new(TokenKind::DoubleHole, start, self.pos, self.module_id)
                 } else {
-                    Token::new(TokenKind::Hole, start, self.pos)
+                    Token::new(TokenKind::Hole, start, self.pos, self.module_id)
                 }
             }
             '@' => self.lex_directive(),
@@ -50,62 +60,69 @@ impl<'a> Lexer<'a> {
             ':' => {
                 self.pos += 1;
                 if self.match_char(':') {
-                    Token::new(TokenKind::ColonColon, start, self.pos)
+                    Token::new(TokenKind::ColonColon, start, self.pos, self.module_id)
                 } else {
-                    Token::new(TokenKind::Colon, start, self.pos)
+                    Token::new(TokenKind::Colon, start, self.pos, self.module_id)
                 }
             }
             '=' => {
                 self.pos += 1;
                 if self.match_char('=') {
-                    Token::new(TokenKind::EqEq, start, self.pos)
+                    Token::new(TokenKind::EqEq, start, self.pos, self.module_id)
                 } else if self.match_char('>') {
-                    Token::new(TokenKind::FatArrow, start, self.pos)
+                    Token::new(TokenKind::FatArrow, start, self.pos, self.module_id)
                 } else {
-                    Token::new(TokenKind::Assign, start, self.pos)
+                    Token::new(TokenKind::Assign, start, self.pos, self.module_id)
                 }
             }
             '!' => {
                 self.pos += 1;
                 if self.match_char('=') {
-                    Token::new(TokenKind::Ne, start, self.pos)
+                    Token::new(TokenKind::Ne, start, self.pos, self.module_id)
                 } else {
                     Token::new(
-                        TokenKind::Error("unexpected '!'".to_string()),
+                        // TokenKind::Error("unexpected '!'".to_string()),
+                        TokenKind::Error(TokenError::UnexpectedToken(Box::new(TokenKind::Not))),
                         start,
                         self.pos,
+                        self.module_id,
                     )
                 }
             }
             '<' => {
                 self.pos += 1;
                 if self.match_char('=') {
-                    Token::new(TokenKind::Le, start, self.pos)
+                    Token::new(TokenKind::Le, start, self.pos, self.module_id)
                 } else {
-                    Token::new(TokenKind::Lt, start, self.pos)
+                    Token::new(TokenKind::Lt, start, self.pos, self.module_id)
                 }
             }
             '>' => {
                 self.pos += 1;
                 if self.match_char('=') {
-                    Token::new(TokenKind::Ge, start, self.pos)
+                    Token::new(TokenKind::Ge, start, self.pos, self.module_id)
                 } else {
-                    Token::new(TokenKind::Gt, start, self.pos)
+                    Token::new(TokenKind::Gt, start, self.pos, self.module_id)
                 }
             }
             '-' => {
                 self.pos += 1;
                 if self.match_char('>') {
-                    Token::new(TokenKind::Arrow, start, self.pos)
+                    Token::new(TokenKind::Arrow, start, self.pos, self.module_id)
                 } else {
-                    Token::new(TokenKind::Minus, start, self.pos)
+                    Token::new(TokenKind::Minus, start, self.pos, self.module_id)
                 }
             }
             c if c.is_ascii_digit() => self.lex_number(),
             c if is_ident_start(c) => self.lex_identifier(),
             _ => {
                 self.pos += 1;
-                Token::new(TokenKind::Error("unknown".to_string()), start, self.pos)
+                Token::new(
+                    TokenKind::Error(TokenError::UnknownToken),
+                    start,
+                    self.pos,
+                    self.module_id,
+                )
             }
         }
     }
@@ -113,7 +130,7 @@ impl<'a> Lexer<'a> {
     fn single(&mut self, kind: TokenKind) -> Token {
         let start = self.pos;
         self.pos += 1;
-        Token::new(kind, start, self.pos)
+        Token::new(kind, start, self.pos, self.module_id)
     }
 
     fn match_char(&mut self, expected: char) -> bool {
@@ -189,7 +206,7 @@ impl<'a> Lexer<'a> {
             _ => TokenKind::Ident(text.to_string()),
         };
 
-        Token::new(kind, start, self.pos)
+        Token::new(kind, start, self.pos, self.module_id)
     }
 
     fn lex_directive(&mut self) -> Token {
@@ -199,9 +216,10 @@ impl<'a> Lexer<'a> {
         if self.pos >= self.input.len() || !is_ident_start(self.input.as_bytes()[self.pos] as char)
         {
             return Token::new(
-                TokenKind::Error("invalid directive".to_string()),
+                TokenKind::Error(TokenError::InvalidDirective),
                 start,
                 self.pos,
+                self.module_id,
             );
         }
 
@@ -219,6 +237,7 @@ impl<'a> Lexer<'a> {
             TokenKind::Directive(self.input[start + 1..self.pos].to_string()),
             start,
             self.pos,
+            self.module_id,
         )
     }
 
@@ -231,7 +250,9 @@ impl<'a> Lexer<'a> {
             let c = self.input.as_bytes()[self.pos] as char;
             self.pos += 1;
             match c {
-                '"' => return Token::new(TokenKind::String(value), start, self.pos),
+                '"' => {
+                    return Token::new(TokenKind::String(value), start, self.pos, self.module_id);
+                }
                 '\\' => {
                     if self.pos >= self.input.len() {
                         break;
@@ -252,9 +273,10 @@ impl<'a> Lexer<'a> {
         }
 
         Token::new(
-            TokenKind::Error("unterminated string".to_string()),
+            TokenKind::Error(TokenError::UnterminatedString),
             start,
             self.pos,
+            self.module_id,
         )
     }
 
@@ -275,12 +297,13 @@ impl<'a> Lexer<'a> {
             }
             let text = &self.input[start..self.pos];
             return match text.parse::<f64>() {
-                Ok(value) => Token::new(TokenKind::Real(value), start, self.pos),
+                Ok(value) => Token::new(TokenKind::Real(value), start, self.pos, self.module_id),
                 Err(_) => {
                     Token::new(
-                        TokenKind::Error("invalid real".to_string()),
+                        TokenKind::Error(TokenError::InvalidReal),
                         start,
                         self.pos,
+                        self.module_id,
                     )
                 }
             };
@@ -288,16 +311,41 @@ impl<'a> Lexer<'a> {
 
         let text = &self.input[start..self.pos];
         match text.parse::<i64>() {
-            Ok(value) => Token::new(TokenKind::Int(value), start, self.pos),
+            Ok(value) => Token::new(TokenKind::Int(value), start, self.pos, self.module_id),
             Err(_) => {
                 Token::new(
-                    TokenKind::Error("invalid integer".to_string()),
+                    TokenKind::Error(TokenError::InvalidInteger),
                     start,
                     self.pos,
+                    self.module_id,
                 )
             }
         }
     }
+}
+
+pub fn tokenize_with_diagnostics(
+    input: &str,
+    module_id: ModuleId,
+) -> (Vec<Token>, Vec<Diagnostic>) {
+    let mut lexer = Lexer::new(input, module_id);
+    let mut tokens = Vec::new();
+    let mut diagnostics = Vec::new();
+
+    loop {
+        let token = lexer.next_token();
+        if let TokenKind::Error(error) = &token.kind {
+            diagnostics.push(error.diagnostic(token.span));
+        }
+
+        let is_eof = matches!(token.kind, TokenKind::EOF);
+        tokens.push(token);
+        if is_eof {
+            break;
+        }
+    }
+
+    (tokens, diagnostics)
 }
 
 fn is_ident_start(c: char) -> bool {

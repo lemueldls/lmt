@@ -1,16 +1,22 @@
 use std::{fs, path::PathBuf};
 
-use lmt_syntax::{db::tokenize_source, parser::parse_program};
+use lmt_diagnostics::{
+    ModuleId,
+    graph::{ModuleGraph, VirtualGraph},
+};
+use lmt_syntax::{Database, db::tokenize_source, parser::parse_program_source};
 use walkdir::WalkDir;
 
-fn render_tokens(src: &str) -> String {
-    let tokens = tokenize_source(src);
+fn render_tokens(src: &str, module_id: ModuleId) -> String {
+    let tokens = tokenize_source(src, module_id);
     let mut out = String::new();
 
     for token in tokens {
         out.push_str(&format!(
             "{:?}@{}..{}\n",
-            token.kind, token.span.start, token.span.end
+            token.kind,
+            token.span.start().unwrap(),
+            token.span.end().unwrap()
         ));
     }
 
@@ -18,10 +24,16 @@ fn render_tokens(src: &str) -> String {
 }
 
 fn render_case(src: &str) -> String {
-    let program = parse_program(src);
+    let db = Database::new();
+    let mut graph = VirtualGraph::new();
+
+    let module_id = graph.register(&db, "test.lmt");
+    graph.set_content(&db, module_id, src.to_string()).unwrap();
+
+    let program = parse_program_source(src, module_id);
     format!(
         "SOURCE:\n{src}\n\nTOKENS:\n{}\nPROGRAM:\n{program:#?}",
-        render_tokens(src)
+        render_tokens(src, module_id)
     )
 }
 

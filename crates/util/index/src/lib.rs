@@ -2,12 +2,50 @@ mod secondary;
 
 use core::fmt;
 
-use parking_lot::{
-    MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
-};
+pub use parking_lot::{MappedRwLockReadGuard, MappedRwLockWriteGuard};
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 pub use secondary::SecondarySlotLockMap;
-pub use slotmap::new_key_type;
-use slotmap::{Key, SlotMap};
+use slotmap::SlotMap;
+pub use slotmap::{Key, KeyData};
+
+#[macro_export]
+macro_rules! define_index_type {
+    ( $(#[$outer:meta])* $vis:vis struct $name:ident; $($rest:tt)* ) => {
+        $(#[$outer])*
+        #[derive(::facet::Facet, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[facet(opaque, proxy = u64)]
+        $vis struct $name($crate::KeyData);
+
+        impl ::core::convert::From<u64> for $name {
+            fn from(u: u64) -> Self {
+                Self($crate::KeyData::from_ffi(u))
+            }
+        }
+
+        impl ::core::convert::From<&$name> for u64 {
+            fn from(id: &$name) -> Self {
+                id.0.as_ffi()
+            }
+        }
+
+
+        impl ::core::convert::From<$crate::KeyData> for $name {
+            fn from(k: $crate::KeyData) -> Self {
+                $name(k)
+            }
+        }
+
+        unsafe impl $crate::Key for $name {
+            fn data(&self) -> $crate::KeyData {
+                self.0
+            }
+        }
+
+        $crate::define_index_type!($($rest)*);
+    };
+
+    () => {}
+}
 
 pub struct SlotLockMap<K: Key, T> {
     map: RwLock<SlotMap<K, T>>,
