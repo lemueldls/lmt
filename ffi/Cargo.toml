@@ -1,0 +1,25 @@
+[package]
+name = "lmt-ffi"
+version = "0.1.0"
+edition = "2024"
+# version.workspace = true
+# rust-version.workspace = true
+# authors.workspace = true
+# edition.workspace = true
+# homepage.workspace = true
+# repository.workspace = true
+# license.workspace = true
+# categories.workspace = true
+# keywords.workspace = true
+# readme.workspace = true
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+boltffi = "0.25.0"
+
+# [lints]
+# workspace = true
+
+[workspace]

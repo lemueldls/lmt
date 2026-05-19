@@ -1,12 +1,10 @@
-//! lmt-syntax: incremental parser/lexer and semantic analysis framework (scaffold)
+//! Incremental parser/lexer
 
 pub mod ast;
 pub mod db;
 pub mod diagnostic;
 pub mod lexer;
-pub mod lsp;
 pub mod parser;
-pub mod semantic;
 pub mod token;
 
 pub use db::Database;
