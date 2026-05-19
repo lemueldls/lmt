@@ -1,5 +1,6 @@
 ---
 source: crates/core/syntax/tests/examples.rs
+assertion_line: 67
 expression: render_case(&src)
 ---
 SOURCE:

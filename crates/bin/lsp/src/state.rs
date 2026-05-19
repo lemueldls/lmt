@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 /// LSP server state and document management.
 use async_lsp::ClientSocket;
 use lmt_diagnostics::graph::LspGraph;
-use lmt_syntax::Database;
+use lmt_syntax::SyntaxDatabase;
 use lsp_types::Url;
 use parking_lot::RwLock;
 
@@ -14,7 +14,7 @@ pub struct ServerState {
     /// Open documents: URI → text content
     pub documents: Arc<RwLock<HashMap<Url, String>>>,
     /// Shared incremental database
-    pub db: Arc<Database>,
+    pub db: Arc<SyntaxDatabase>,
     /// In-memory module graph for virtual file contents
     pub graph: Arc<RwLock<LspGraph>>,
 }
@@ -24,7 +24,7 @@ impl ServerState {
         Self {
             client,
             documents: Arc::new(RwLock::new(HashMap::new())),
-            db: Arc::new(Database::new()),
+            db: Arc::new(SyntaxDatabase::new()),
             graph: Arc::new(RwLock::new(LspGraph::new())),
         }
     }
@@ -41,7 +41,7 @@ impl ServerState {
         self.documents.write().remove(uri);
     }
 
-    pub fn db(&self) -> Arc<Database> {
+    pub fn db(&self) -> Arc<SyntaxDatabase> {
         self.db.clone()
     }
 

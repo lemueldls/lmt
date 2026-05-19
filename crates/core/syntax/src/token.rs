@@ -2,6 +2,7 @@ use std::fmt;
 
 use facet::Facet;
 use lmt_diagnostics::{ModuleId, Span};
+use ordered_float::OrderedFloat;
 
 use crate::diagnostic::Diagnostic;
 
@@ -34,7 +35,7 @@ pub enum TokenKind {
     Ident(String),
     Directive(String),
     Int(i64),
-    Real(f64),
+    Real(OrderedFloat<f64>),
     String(String),
     True,
     False,
@@ -143,14 +144,14 @@ impl TokenError {
             TokenError::UnexpectedToken(kind) => {
                 Diagnostic::UnexpectedToken {
                     kind: *kind.clone(),
-                    span,
+                    token: span,
                 }
             }
-            TokenError::UnknownToken => Diagnostic::UnknownToken { span },
-            TokenError::UnterminatedString => Diagnostic::UnterminatedString { span },
-            TokenError::InvalidInteger => Diagnostic::InvalidInteger { span },
-            TokenError::InvalidReal => Diagnostic::InvalidReal { span },
-            TokenError::InvalidDirective => Diagnostic::InvalidDirective { span },
+            TokenError::UnknownToken => Diagnostic::UnknownToken { token: span },
+            TokenError::UnterminatedString => Diagnostic::UnterminatedString { string: span },
+            TokenError::InvalidInteger => Diagnostic::InvalidInteger { integer: span },
+            TokenError::InvalidReal => Diagnostic::InvalidReal { real: span },
+            TokenError::InvalidDirective => Diagnostic::InvalidDirective { directive: span },
         }
     }
 }

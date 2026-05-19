@@ -597,6 +597,7 @@ dependencies = [
  "const-fnv1a-hash",
  "iddqd 0.3.18",
  "impls",
+ "ordered-float",
 ]
 
 [[package]]
@@ -1607,12 +1608,20 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 name = "lmt-checker"
 version = "0.1.0-alpha.0"
 dependencies = [
- "anyhow",
- "cvc5-rs",
+ "facet 0.44.1",
+ "facet-core 0.44.1",
+ "facet-dessert 0.44.1",
+ "facet-error 0.44.1",
+ "facet-path 0.44.1",
+ "facet-postcard 0.44.1",
+ "facet-reflect 0.44.1",
+ "facet-value",
  "lmt-diagnostics",
  "lmt-index",
+ "lmt-solver",
  "lmt-syntax",
  "parking_lot",
+ "picante",
  "thiserror",
 ]
 
@@ -1679,6 +1688,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "lmt-solver"
+version = "0.1.0-alpha.0"
+dependencies = [
+ "anyhow",
+ "cvc5-rs",
+ "facet 0.44.1",
+ "facet-core 0.44.1",
+ "facet-dessert 0.44.1",
+ "facet-error 0.44.1",
+ "facet-path 0.44.1",
+ "facet-postcard 0.44.1",
+ "facet-reflect 0.44.1",
+ "facet-value",
+ "lmt-diagnostics",
+ "lmt-index",
+ "lmt-syntax",
+ "parking_lot",
+ "thiserror",
+]
+
+[[package]]
 name = "lmt-syntax"
 version = "0.1.0-alpha.0"
 dependencies = [
@@ -1693,6 +1723,7 @@ dependencies = [
  "facet-value",
  "insta",
  "lmt-diagnostics",
+ "ordered-float",
  "picante",
  "tacos",
  "walkdir",

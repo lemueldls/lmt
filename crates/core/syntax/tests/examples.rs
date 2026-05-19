@@ -4,7 +4,7 @@ use lmt_diagnostics::{
     ModuleId,
     graph::{ModuleGraph, VirtualGraph},
 };
-use lmt_syntax::{Database, db::tokenize_source, parser::parse_program_source};
+use lmt_syntax::{SyntaxDatabase, db::tokenize_source, parser::parse_program_source};
 use walkdir::WalkDir;
 
 fn render_tokens(src: &str, module_id: ModuleId) -> String {
@@ -24,7 +24,7 @@ fn render_tokens(src: &str, module_id: ModuleId) -> String {
 }
 
 fn render_case(src: &str) -> String {
-    let db = Database::new();
+    let db = SyntaxDatabase::new();
     let mut graph = VirtualGraph::new();
 
     let module_id = graph.upsert(&db, "test.lmt", src.to_string());

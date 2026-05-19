@@ -32,34 +32,105 @@ Program {
                 annotation: Some(
                     Binary {
                         left: Refinement {
-                            base: Var(
-                                "Int",
-                            ),
+                            base: Var {
+                                name: "Int",
+                                span: Known {
+                                    start: 8,
+                                    end: 11,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
                             binder: None,
                             predicate: Binary {
-                                left: Var(
-                                    "it",
-                                ),
+                                left: Var {
+                                    name: "it",
+                                    span: Known {
+                                        start: 14,
+                                        end: 16,
+                                        module_id: ModuleId(
+                                            1v1,
+                                        ),
+                                    },
+                                },
                                 op: Gt,
-                                right: LiteralInt(
-                                    10,
+                                right: LiteralInt {
+                                    value: 10,
+                                    span: Known {
+                                        start: 19,
+                                        end: 21,
+                                        module_id: ModuleId(
+                                            1v1,
+                                        ),
+                                    },
+                                },
+                                span: Known {
+                                    start: 14,
+                                    end: 21,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
+                            span: Known {
+                                start: 8,
+                                end: 21,
+                                module_id: ModuleId(
+                                    1v1,
                                 ),
                             },
                         },
                         op: And,
                         right: Binary {
-                            left: Var(
-                                "it",
-                            ),
+                            left: Var {
+                                name: "it",
+                                span: Known {
+                                    start: 26,
+                                    end: 28,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
                             op: Lt,
-                            right: LiteralInt(
-                                20,
+                            right: LiteralInt {
+                                value: 20,
+                                span: Known {
+                                    start: 31,
+                                    end: 33,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
+                            span: Known {
+                                start: 26,
+                                end: 33,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
+                        span: Known {
+                            start: 8,
+                            end: 33,
+                            module_id: ModuleId(
+                                1v1,
                             ),
                         },
                     },
                 ),
                 value: Some(
-                    Hole,
+                    Hole {
+                        span: Known {
+                            start: 36,
+                            end: 37,
+                            module_id: ModuleId(
+                                1v1,
+                            ),
+                        },
+                    },
                 ),
             },
         ),

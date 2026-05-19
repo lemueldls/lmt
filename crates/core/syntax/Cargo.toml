@@ -16,10 +16,11 @@ readme.workspace = true
 lmt-diagnostics.workspace = true
 
 anyhow.workspace = true
+ordered-float.workspace = true
 picante.workspace = true
 tacos.workspace = true
 
-facet = { version = "=0.44.1" }
+facet = { version = "=0.44.1", features = ["ordered-float"] }
 facet-core = { version = "=0.44.1" }
 facet-dessert = { version = "=0.44.1" }
 facet-error = { version = "=0.44.1" }

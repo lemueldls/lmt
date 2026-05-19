@@ -28,9 +28,16 @@ Program {
     statements: [
         Expr(
             Match {
-                scrutinee: Var(
-                    "value",
-                ),
+                scrutinee: Var {
+                    name: "value",
+                    span: Known {
+                        start: 6,
+                        end: 11,
+                        module_id: ModuleId(
+                            1v1,
+                        ),
+                    },
+                },
                 arms: [
                     MatchArm {
                         pattern: Variant {
@@ -41,17 +48,38 @@ Program {
                                 ),
                             ],
                         },
-                        body: Var(
-                            "v",
-                        ),
+                        body: Var {
+                            name: "v",
+                            span: Known {
+                                start: 26,
+                                end: 27,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
                     },
                     MatchArm {
                         pattern: Wildcard,
-                        body: LiteralInt(
-                            0,
-                        ),
+                        body: LiteralInt {
+                            value: 0,
+                            span: Known {
+                                start: 34,
+                                end: 35,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
                     },
                 ],
+                span: Known {
+                    start: 0,
+                    end: 37,
+                    module_id: ModuleId(
+                        1v1,
+                    ),
+                },
             },
         ),
     ],

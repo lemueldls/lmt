@@ -11,14 +11,29 @@ categories.workspace = true
 keywords.workspace = true
 readme.workspace = true
 
-[dependencies]
-anyhow.workspace = true
-cvc5-rs.workspace = true
-parking_lot.workspace = true
-thiserror.workspace = true
+[features]
+default = ["cvc5"]
+cvc5 = ["lmt-solver/cvc5"]
 
-lmt-index = { path = "../../util/index" }
-lmt-parser = { path = "../parser" }
+[dependencies]
+
+lmt-diagnostics.workspace = true
+lmt-index.workspace = true
+lmt-solver.workspace = true
+lmt-syntax.workspace = true
+
+facet = { version = "=0.44.1", features = ["ordered-float"] }
+facet-core = { version = "=0.44.1" }
+facet-dessert = { version = "=0.44.1" }
+facet-error = { version = "=0.44.1" }
+facet-path = { version = "=0.44.1" }
+facet-postcard = { version = "=0.44.1" }
+facet-reflect = { version = "=0.44.1" }
+facet-value = { version = "=0.44.1" }
+
+parking_lot.workspace = true
+picante.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

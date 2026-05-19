@@ -2,8 +2,8 @@ use lmt_diagnostics::{ModuleId, Span, source::NamedSource};
 use picante::PicanteResult;
 
 use crate::{
-    ast::{Expr, LetDecl, MatchArm, Pattern, Program, Statement, UseDecl},
-    db::{DatabaseTrait, tokenize},
+    ast::{self, Expr, LetDecl, MatchArm, Pattern, Program, Statement, UseDecl},
+    db::{SyntaxDatabaseTrait, tokenize},
     diagnostic::Diagnostic,
     lexer::tokenize_with_diagnostics,
     token::{Token, TokenKind},
@@ -166,14 +166,15 @@ impl Parser {
     }
 
     fn parse_verification_expr(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_logical_or();
 
         while self.consume_if(&TokenKind::ColonColon) {
             let right = self.parse_logical_or();
-            left = Expr::Binary {
+            left = Expr::Ascription {
                 left: Box::new(left),
-                op: crate::ast::BinaryOp::Ascription,
                 right: Box::new(right),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -181,13 +182,15 @@ impl Parser {
     }
 
     fn parse_logical_or(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_logical_and();
         while self.consume_if(&TokenKind::Or) {
             let right = self.parse_logical_and();
             left = Expr::Binary {
                 left: Box::new(left),
-                op: crate::ast::BinaryOp::Or,
+                op: ast::BinaryOp::Or,
                 right: Box::new(right),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -195,13 +198,15 @@ impl Parser {
     }
 
     fn parse_logical_and(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_refinement();
         while self.consume_if(&TokenKind::And) {
             let right = self.parse_refinement();
             left = Expr::Binary {
                 left: Box::new(left),
-                op: crate::ast::BinaryOp::And,
+                op: ast::BinaryOp::And,
                 right: Box::new(right),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -209,6 +214,7 @@ impl Parser {
     }
 
     fn parse_refinement(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_equality();
         while self.consume_if(&TokenKind::Pipe) {
             // optional binder
@@ -236,6 +242,7 @@ impl Parser {
                 base: Box::new(left),
                 binder,
                 predicate: Box::new(predicate),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -243,14 +250,16 @@ impl Parser {
     }
 
     fn parse_equality(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_relational();
         loop {
             if self.consume_if(&TokenKind::EqEq) {
                 let right = self.parse_relational();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Eq,
+                    op: ast::BinaryOp::Eq,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -258,8 +267,9 @@ impl Parser {
                 let right = self.parse_relational();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Ne,
+                    op: ast::BinaryOp::Ne,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -270,14 +280,16 @@ impl Parser {
     }
 
     fn parse_relational(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_additive();
         loop {
             if self.consume_if(&TokenKind::Lt) {
                 let right = self.parse_additive();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Lt,
+                    op: ast::BinaryOp::Lt,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -285,8 +297,9 @@ impl Parser {
                 let right = self.parse_additive();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Le,
+                    op: ast::BinaryOp::Le,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -294,8 +307,9 @@ impl Parser {
                 let right = self.parse_additive();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Gt,
+                    op: ast::BinaryOp::Gt,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -303,8 +317,9 @@ impl Parser {
                 let right = self.parse_additive();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Ge,
+                    op: ast::BinaryOp::Ge,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -315,14 +330,16 @@ impl Parser {
     }
 
     fn parse_additive(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_multiplicative();
         loop {
             if self.consume_if(&TokenKind::Plus) {
                 let right = self.parse_multiplicative();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Add,
+                    op: ast::BinaryOp::Add,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -330,8 +347,9 @@ impl Parser {
                 let right = self.parse_multiplicative();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Sub,
+                    op: ast::BinaryOp::Sub,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -342,14 +360,16 @@ impl Parser {
     }
 
     fn parse_multiplicative(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_intersection();
         loop {
             if self.consume_if(&TokenKind::Star) {
                 let right = self.parse_intersection();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Mul,
+                    op: ast::BinaryOp::Mul,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -357,8 +377,9 @@ impl Parser {
                 let right = self.parse_intersection();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Div,
+                    op: ast::BinaryOp::Div,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -366,8 +387,9 @@ impl Parser {
                 let right = self.parse_intersection();
                 left = Expr::Binary {
                     left: Box::new(left),
-                    op: crate::ast::BinaryOp::Mod,
+                    op: ast::BinaryOp::Mod,
                     right: Box::new(right),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 };
                 continue;
             }
@@ -378,13 +400,15 @@ impl Parser {
     }
 
     fn parse_intersection(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut left = self.parse_power();
         while self.consume_if(&TokenKind::Amp) {
             let right = self.parse_power();
             left = Expr::Binary {
                 left: Box::new(left),
-                op: crate::ast::BinaryOp::Intersection,
+                op: ast::BinaryOp::Intersection,
                 right: Box::new(right),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -393,13 +417,15 @@ impl Parser {
 
     fn parse_power(&mut self) -> Expr {
         // right-associative
+        let start_idx = self.pos;
         let mut left = self.parse_unary();
         if self.consume_if(&TokenKind::Caret) {
             let right = self.parse_power();
             left = Expr::Binary {
                 left: Box::new(left),
-                op: crate::ast::BinaryOp::Power,
+                op: ast::BinaryOp::Power,
                 right: Box::new(right),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -407,18 +433,21 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> Expr {
+        let start_idx = self.pos;
         if self.consume_if(&TokenKind::Minus) {
             let expr = self.parse_unary();
             return Expr::Unary {
-                op: crate::ast::UnaryOp::Neg,
+                op: ast::UnaryOp::Neg,
                 expr: Box::new(expr),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
         if self.consume_if(&TokenKind::Not) {
             let expr = self.parse_unary();
             return Expr::Unary {
-                op: crate::ast::UnaryOp::Not,
+                op: ast::UnaryOp::Not,
                 expr: Box::new(expr),
+                span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
             };
         }
 
@@ -426,6 +455,7 @@ impl Parser {
     }
 
     fn parse_postfix(&mut self) -> Expr {
+        let start_idx = self.pos;
         let mut expr = self.parse_primary();
 
         loop {
@@ -449,23 +479,23 @@ impl Parser {
                     expr = Expr::Call {
                         callee: Box::new(expr),
                         args,
+                        span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                     };
                 }
                 TokenKind::Dot => {
                     // field access; treat right side as identifier
                     self.bump();
                     if let Some(field) = self.expect_ident() {
-                        let right = Expr::Var(field);
-                        expr = Expr::Binary {
-                            left: Box::new(expr),
-                            op: crate::ast::BinaryOp::FieldAccess,
-                            right: Box::new(right),
+                        expr = Expr::FieldAccess {
+                            base: Box::new(expr),
+                            field,
+                            span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                         };
                     } else {
                         // unexpected, create error and stop
                         let span = self.current_token_span();
                         self.diagnostics.push(Diagnostic::ExpectedField { span });
-                        expr = Expr::Error;
+                        expr = Expr::Error { span };
 
                         break;
                     }
@@ -478,49 +508,72 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Expr {
+        let start_idx = self.pos;
         match self.peek_kind() {
             TokenKind::Int(n) => {
                 let v = *n;
                 self.bump();
 
-                Expr::LiteralInt(v)
+                Expr::LiteralInt {
+                    value: v,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::Real(f) => {
                 let v = *f;
                 self.bump();
 
-                Expr::LiteralReal(v)
+                Expr::LiteralReal {
+                    value: v,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::String(s) => {
                 let v = s.clone();
                 self.bump();
 
-                Expr::LiteralString(v)
+                Expr::LiteralString {
+                    value: v,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::True => {
                 self.bump();
 
-                Expr::LiteralBool(true)
+                Expr::LiteralBool {
+                    value: true,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::False => {
                 self.bump();
 
-                Expr::LiteralBool(false)
+                Expr::LiteralBool {
+                    value: false,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::Hole => {
                 self.bump();
-                Expr::Hole
+                Expr::Hole {
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::DoubleHole => {
                 self.bump();
 
-                Expr::Hole
+                Expr::Hole {
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::Ident(name) => {
                 let n = name.clone();
                 self.bump();
 
-                Expr::Var(n)
+                Expr::Var {
+                    name: n,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::LParen => {
                 self.bump();
@@ -529,7 +582,10 @@ impl Parser {
                     self.bump();
                 }
 
-                inner
+                Expr::Paren {
+                    expr: Box::new(inner),
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::LBrace => {
                 // block expr
@@ -555,7 +611,11 @@ impl Parser {
                     self.bump();
                 }
 
-                Expr::Block { statements, tail }
+                Expr::Block {
+                    statements,
+                    tail,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::If => {
                 self.bump();
@@ -572,6 +632,7 @@ impl Parser {
                     condition,
                     then_branch,
                     else_branch,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 }
             }
             TokenKind::Match => {
@@ -592,10 +653,7 @@ impl Parser {
 
                     let body = if matches!(self.peek_kind(), TokenKind::LBrace) {
                         // block
-                        match self.parse_primary() {
-                            Expr::Block { statements, tail } => Expr::Block { statements, tail },
-                            other => other,
-                        }
+                        self.parse_primary()
                     } else {
                         self.parse_verification_expr()
                     };
@@ -611,7 +669,11 @@ impl Parser {
                     self.bump();
                 }
 
-                Expr::Match { scrutinee, arms }
+                Expr::Match {
+                    scrutinee,
+                    arms,
+                    span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                }
             }
             TokenKind::Dot => {
                 // Variant expression starting with .Identifier
@@ -634,13 +696,17 @@ impl Parser {
                         }
                     }
 
-                    Expr::Variant { name, args }
+                    Expr::Variant {
+                        name,
+                        args,
+                        span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
+                    }
                 } else {
                     let span = self.current_token_span();
                     self.diagnostics
                         .push(Diagnostic::ExpectedVariantName { span });
 
-                    Expr::Error
+                    Expr::Error { span }
                 }
             }
             _ => {
@@ -648,10 +714,10 @@ impl Parser {
                 let span = self.current_token_span();
                 let kind = self.peek_kind().clone();
                 self.diagnostics
-                    .push(Diagnostic::UnexpectedToken { kind, span });
+                    .push(Diagnostic::UnexpectedToken { kind, token: span });
                 self.bump();
 
-                Expr::Error
+                Expr::Error { span }
             }
         }
     }
@@ -728,7 +794,7 @@ impl Parser {
             _ => {
                 let span = self.current_token_span();
                 self.diagnostics
-                    .push(Diagnostic::UnexpectedPattern { span });
+                    .push(Diagnostic::UnexpectedPattern { pattern: span });
                 self.bump();
 
                 Pattern::Error
@@ -737,7 +803,7 @@ impl Parser {
     }
 }
 
-pub async fn parse_program<DB: DatabaseTrait>(
+pub async fn parse_program<DB: SyntaxDatabaseTrait>(
     db: &DB,
     source: NamedSource,
 ) -> PicanteResult<(Program, Vec<Diagnostic>)> {

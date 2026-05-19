@@ -5,7 +5,7 @@ use facet::Facet;
 use crate::ModuleId;
 
 #[repr(u8)]
-#[derive(Facet, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Facet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Span {
     Known {
         start: usize,

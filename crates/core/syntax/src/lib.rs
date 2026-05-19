@@ -7,7 +7,7 @@ pub mod lexer;
 pub mod parser;
 pub mod token;
 
-pub use db::Database;
+pub use db::SyntaxDatabase;
 pub use lmt_diagnostics::source::NamedSource;
 pub use token::{Token, TokenKind};
 
@@ -21,7 +21,7 @@ mod tests {
     fn parser_recovery_simple() {
         use parser::parse_program_source;
 
-        let db = Database::new();
+        let db = SyntaxDatabase::new();
         let mut graph = VirtualGraph::new();
 
         let content = "1 @@@ abc ; 2";
@@ -35,8 +35,8 @@ mod tests {
         for stmt in program.statements.iter() {
             if let ast::Statement::Expr(expr) = stmt {
                 match expr {
-                    ast::Expr::Error => has_error = true,
-                    ast::Expr::LiteralInt(2) => has_two = true,
+                    ast::Expr::Error { .. } => has_error = true,
+                    ast::Expr::LiteralInt { value: 2, .. } => has_two = true,
                     _ => {}
                 }
             }

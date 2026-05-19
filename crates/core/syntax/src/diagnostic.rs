@@ -8,22 +8,22 @@ use crate::TokenKind;
 #[derive(Facet, Debug, Clone, PartialEq)]
 pub enum Diagnostic {
     #[facet(diag::label("Unexpected token `{kind}`"))]
-    UnexpectedToken { kind: TokenKind, span: Span },
+    UnexpectedToken { kind: TokenKind, token: Span },
 
     #[facet(diag::label("Unknown token"))]
-    UnknownToken { span: Span },
+    UnknownToken { token: Span },
 
     #[facet(diag::label("Unterminated string literal"))]
-    UnterminatedString { span: Span },
+    UnterminatedString { string: Span },
 
     #[facet(diag::label("Invalid integer literal"))]
-    InvalidInteger { span: Span },
+    InvalidInteger { integer: Span },
 
     #[facet(diag::label("Invalid real literal"))]
-    InvalidReal { span: Span },
+    InvalidReal { real: Span },
 
     #[facet(diag::label("Invalid directive"))]
-    InvalidDirective { span: Span },
+    InvalidDirective { directive: Span },
 
     #[facet(diag::label("Expected field after `.`"))]
     ExpectedField { span: Span },
@@ -35,7 +35,10 @@ pub enum Diagnostic {
     ExpectedVariantInPattern { span: Span },
 
     #[facet(diag::label("Unexpected pattern"))]
-    UnexpectedPattern { span: Span },
+    UnexpectedPattern { pattern: Span },
+
+    #[facet(diag::label("Variable {var} not found"))]
+    VariableNotFound { var: Span },
 }
 
 impl Diagnostic {

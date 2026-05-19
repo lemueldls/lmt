@@ -27,23 +27,72 @@ Program {
                 annotation: None,
                 value: Some(
                     Refinement {
-                        base: Var(
-                            "Int",
-                        ),
+                        base: Var {
+                            name: "Int",
+                            span: Known {
+                                start: 12,
+                                end: 15,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
                         binder: None,
                         predicate: Binary {
                             left: Binary {
-                                left: Var(
-                                    "it",
-                                ),
+                                left: Var {
+                                    name: "it",
+                                    span: Known {
+                                        start: 18,
+                                        end: 20,
+                                        module_id: ModuleId(
+                                            1v1,
+                                        ),
+                                    },
+                                },
                                 op: Mod,
-                                right: LiteralInt(
-                                    2,
-                                ),
+                                right: LiteralInt {
+                                    value: 2,
+                                    span: Known {
+                                        start: 23,
+                                        end: 24,
+                                        module_id: ModuleId(
+                                            1v1,
+                                        ),
+                                    },
+                                },
+                                span: Known {
+                                    start: 18,
+                                    end: 24,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
                             },
                             op: Eq,
-                            right: LiteralInt(
-                                0,
+                            right: LiteralInt {
+                                value: 0,
+                                span: Known {
+                                    start: 28,
+                                    end: 29,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
+                            span: Known {
+                                start: 18,
+                                end: 29,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
+                        span: Known {
+                            start: 12,
+                            end: 29,
+                            module_id: ModuleId(
+                                1v1,
                             ),
                         },
                     },

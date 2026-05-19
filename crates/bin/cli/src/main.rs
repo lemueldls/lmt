@@ -1,8 +1,9 @@
 use anyhow::Result;
 use facet::Facet;
 use figue::{self as args, FigueBuiltins};
+use lmt_checker::{CheckerDatabase, check_program};
 use lmt_diagnostics::graph::{FsGraph, ModuleGraph};
-use lmt_syntax::{Database, parser::parse_program};
+use lmt_syntax::{SyntaxDatabase, parser::parse_program};
 
 #[derive(Facet)]
 struct Cli {
@@ -45,21 +46,23 @@ enum Command {
 async fn main() -> Result<()> {
     let cli: Cli = figue::from_std_args().unwrap();
 
-    let db = Database::new();
+    let syntax_db = SyntaxDatabase::new();
+    let checker_db = CheckerDatabase::new();
     let mut graph = FsGraph::new();
 
     match cli.command {
         Command::Check { path } => {
-            println!("Checking project at: {}", path);
-
-            let module_id = graph.upsert_path(&db, &path);
+            let module_id = graph.upsert_path(&syntax_db, &path);
             let source = graph.get(module_id);
-            let (program, diagnostics) = parse_program(&db, *source).await?;
+            let (program, mut diagnostics) = parse_program(&syntax_db, *source).await?;
 
-            dbg!(program);
+            // Run semantic checking
+            if let Err(checker_diags) = check_program(&checker_db, program).await? {
+                diagnostics.extend(checker_diags);
+            }
 
             for diag in diagnostics {
-                diag.print(&db, &graph);
+                diag.print(&syntax_db, &graph);
             }
         }
         Command::Eval { expr } => {

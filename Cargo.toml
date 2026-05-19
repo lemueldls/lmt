@@ -17,6 +17,7 @@ resolver = "3"
 lmt-checker = { path = "crates/core/checker" }
 lmt-diagnostics = { path = "crates/util/diagnostics" }
 lmt-index = { path = "crates/util/index" }
+lmt-solver = { path = "crates/core/solver" }
 lmt-syntax = { path = "crates/core/syntax" }
 
 anyhow = { version = "1.0" }
@@ -49,6 +50,7 @@ insta = { version = "1.47.2" }
 line-col = { version = "0.2.1" }
 lsp-types = { version = "0.95.0" }
 mmap-sync = { version = "2.0.4" }
+ordered-float = { version = "5.3.0" }
 parking_lot = { version = "0.12.5", features = [
   "deadlock_detection",
   "nightly",

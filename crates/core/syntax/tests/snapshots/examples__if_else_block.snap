@@ -34,23 +34,58 @@ Program {
                 value: Some(
                     If {
                         condition: Binary {
-                            left: Var(
-                                "n",
-                            ),
+                            left: Var {
+                                name: "n",
+                                span: Known {
+                                    start: 13,
+                                    end: 14,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
                             op: Gt,
-                            right: LiteralInt(
-                                0,
-                            ),
+                            right: LiteralInt {
+                                value: 0,
+                                span: Known {
+                                    start: 17,
+                                    end: 18,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
+                            span: Known {
+                                start: 13,
+                                end: 18,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
                         },
                         then_branch: Block {
                             statements: [
                                 Expr(
-                                    Var(
-                                        "n",
-                                    ),
+                                    Var {
+                                        name: "n",
+                                        span: Known {
+                                            start: 21,
+                                            end: 22,
+                                            module_id: ModuleId(
+                                                1v1,
+                                            ),
+                                        },
+                                    },
                                 ),
                             ],
                             tail: None,
+                            span: Known {
+                                start: 19,
+                                end: 24,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
                         },
                         else_branch: Some(
                             Block {
@@ -58,15 +93,43 @@ Program {
                                     Expr(
                                         Unary {
                                             op: Neg,
-                                            expr: Var(
-                                                "n",
-                                            ),
+                                            expr: Var {
+                                                name: "n",
+                                                span: Known {
+                                                    start: 33,
+                                                    end: 34,
+                                                    module_id: ModuleId(
+                                                        1v1,
+                                                    ),
+                                                },
+                                            },
+                                            span: Known {
+                                                start: 32,
+                                                end: 34,
+                                                module_id: ModuleId(
+                                                    1v1,
+                                                ),
+                                            },
                                         },
                                     ),
                                 ],
                                 tail: None,
+                                span: Known {
+                                    start: 30,
+                                    end: 36,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
                             },
                         ),
+                        span: Known {
+                            start: 10,
+                            end: 36,
+                            module_id: ModuleId(
+                                1v1,
+                            ),
+                        },
                     },
                 ),
             },

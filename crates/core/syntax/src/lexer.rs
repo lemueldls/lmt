@@ -1,4 +1,5 @@
 use lmt_diagnostics::ModuleId;
+use ordered_float::OrderedFloat;
 
 use crate::{
     diagnostic::Diagnostic,
@@ -297,7 +298,14 @@ impl<'a> Lexer<'a> {
             }
             let text = &self.input[start..self.pos];
             return match text.parse::<f64>() {
-                Ok(value) => Token::new(TokenKind::Real(value), start, self.pos, self.module_id),
+                Ok(value) => {
+                    Token::new(
+                        TokenKind::Real(OrderedFloat(value)),
+                        start,
+                        self.pos,
+                        self.module_id,
+                    )
+                }
                 Err(_) => {
                     Token::new(
                         TokenKind::Error(TokenError::InvalidReal),

@@ -7,10 +7,10 @@ use crate::{
 };
 
 #[picante::db(inputs(NamedSource), tracked(tokenize, tokenize_window))]
-pub struct Database {}
+pub struct SyntaxDatabase {}
 
 #[picante::tracked]
-pub async fn tokenize<DB: DatabaseTrait>(
+pub async fn tokenize<DB: SyntaxDatabaseTrait>(
     db: &DB,
     source: NamedSource,
 ) -> PicanteResult<Vec<Token>> {
@@ -47,7 +47,7 @@ pub fn tokenize_source(content: &str, module_id: ModuleId) -> Vec<Token> {
 }
 
 #[picante::tracked]
-pub async fn tokenize_window<DB: DatabaseTrait>(
+pub async fn tokenize_window<DB: SyntaxDatabaseTrait>(
     db: &DB,
     source: NamedSource,
     start: usize,

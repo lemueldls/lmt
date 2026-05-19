@@ -1,5 +1,5 @@
 [package]
-name = "lmt-diagnostics"
+name = "lmt-solver"
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -12,31 +12,28 @@ keywords.workspace = true
 readme.workspace = true
 
 [features]
-
-default = ["fancy", "fs"]
-
-fancy = ["dep:crossterm", "dep:line-col", "dep:rand"]
-fs = []
+default = ["cvc5"]
+cvc5 = ["cvc5-rs"]
 
 [dependencies]
 
-anyhow = { workspace = true }
-picante = { workspace = true }
-tacos = { workspace = true }
+lmt-diagnostics.workspace = true
+lmt-index.workspace = true
+lmt-syntax.workspace = true
 
 facet = { version = "=0.44.1", features = ["ordered-float"] }
 facet-core = { version = "=0.44.1" }
 facet-dessert = { version = "=0.44.1" }
+facet-error = { version = "=0.44.1" }
 facet-path = { version = "=0.44.1" }
 facet-postcard = { version = "=0.44.1" }
 facet-reflect = { version = "=0.44.1" }
 facet-value = { version = "=0.44.1" }
 
-crossterm = { workspace = true, optional = true }
-line-col = { workspace = true, optional = true }
-rand = { workspace = true, optional = true }
-
-lmt-index = { path = "../index" }
+anyhow.workspace = true
+cvc5-rs = { workspace = true, optional = true }
+parking_lot.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

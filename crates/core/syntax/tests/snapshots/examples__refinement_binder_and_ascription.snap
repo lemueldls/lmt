@@ -41,30 +41,93 @@ Program {
                 value: Some(
                     Binary {
                         left: Refinement {
-                            base: Var(
-                                "value",
-                            ),
+                            base: Var {
+                                name: "value",
+                                span: Known {
+                                    start: 14,
+                                    end: 19,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
                             binder: Some(
                                 "it",
                             ),
                             predicate: Binary {
-                                left: Var(
-                                    "it",
-                                ),
+                                left: Var {
+                                    name: "it",
+                                    span: Known {
+                                        start: 28,
+                                        end: 30,
+                                        module_id: ModuleId(
+                                            1v1,
+                                        ),
+                                    },
+                                },
                                 op: Gt,
-                                right: LiteralInt(
-                                    0,
+                                right: LiteralInt {
+                                    value: 0,
+                                    span: Known {
+                                        start: 33,
+                                        end: 34,
+                                        module_id: ModuleId(
+                                            1v1,
+                                        ),
+                                    },
+                                },
+                                span: Known {
+                                    start: 28,
+                                    end: 34,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
+                            span: Known {
+                                start: 14,
+                                end: 34,
+                                module_id: ModuleId(
+                                    1v1,
                                 ),
                             },
                         },
                         op: And,
                         right: Binary {
-                            left: Var(
-                                "it",
-                            ),
+                            left: Var {
+                                name: "it",
+                                span: Known {
+                                    start: 39,
+                                    end: 41,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
                             op: Lt,
-                            right: LiteralInt(
-                                10,
+                            right: LiteralInt {
+                                value: 10,
+                                span: Known {
+                                    start: 44,
+                                    end: 46,
+                                    module_id: ModuleId(
+                                        1v1,
+                                    ),
+                                },
+                            },
+                            span: Known {
+                                start: 39,
+                                end: 46,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
+                        span: Known {
+                            start: 14,
+                            end: 46,
+                            module_id: ModuleId(
+                                1v1,
                             ),
                         },
                     },
@@ -76,14 +139,34 @@ Program {
                 name: "proof",
                 annotation: None,
                 value: Some(
-                    Binary {
-                        left: Var(
-                            "expr",
-                        ),
-                        op: Ascription,
-                        right: Var(
-                            "Int",
-                        ),
+                    Ascription {
+                        left: Var {
+                            name: "expr",
+                            span: Known {
+                                start: 60,
+                                end: 64,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
+                        right: Var {
+                            name: "Int",
+                            span: Known {
+                                start: 68,
+                                end: 71,
+                                module_id: ModuleId(
+                                    1v1,
+                                ),
+                            },
+                        },
+                        span: Known {
+                            start: 60,
+                            end: 71,
+                            module_id: ModuleId(
+                                1v1,
+                            ),
+                        },
                     },
                 ),
             },
