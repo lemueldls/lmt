@@ -42,7 +42,8 @@
         "aliases": [
           "LMT",
           "lmt"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
