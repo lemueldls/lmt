@@ -1,4 +1,4 @@
-use core::fmt;
+use std::fmt;
 
 use parking_lot::{
     MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,

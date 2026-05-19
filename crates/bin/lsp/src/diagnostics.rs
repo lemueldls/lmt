@@ -1,7 +1,7 @@
 use lmt_diagnostics::{
     Span,
     graph::ModuleGraph,
-    report::{Report, ReportRelatedInformation, ReportSeverity, ReportTag},
+    report::{Report, ReportRelatedInformation, ReportRender, ReportRenderItem, ReportSeverity},
     source::HasNamedSourceIngredient,
 };
 use lsp_types::{
@@ -77,31 +77,43 @@ fn report_to_lsp_diagnostic<DB: HasNamedSourceIngredient, G: ModuleGraph>(
         .filter(|items| !items.is_empty());
 
     let message = if let Some(help) = &report.help {
-        format!("{}\n{}", report.message, help)
+        format!(
+            "{}\n{}",
+            format_report_render(&report.message),
+            format_report_render(help)
+        )
     } else {
-        report.message
+        format_report_render(&report.message)
     };
 
     LspDiagnostic {
         range,
         severity,
-        code: report.code.clone().map(lsp_types::NumberOrString::String),
+        code: None,
         source: Some("lmt".to_string()),
         message,
         related_information,
-        tags: report.tags.as_ref().map(|tags| {
-            tags.iter()
-                .filter_map(|tag| {
-                    match tag {
-                        ReportTag::Unnecessary => Some(lsp_types::DiagnosticTag::UNNECESSARY),
-                        ReportTag::Deprecated => Some(lsp_types::DiagnosticTag::DEPRECATED),
-                    }
-                })
-                .collect()
-        }),
+        tags: None,
         code_description: None,
         data: None,
     }
+}
+
+fn format_report_render(render: &ReportRender) -> String {
+    let mut out = String::new();
+
+    for item in &render.items {
+        match item {
+            ReportRenderItem::Text(text) => out.push_str(text),
+            ReportRenderItem::Reference { text, span } => {
+                // For simplicity, we'll just include the text. In a real implementation,
+                // we might want to include more info or format it differently.
+                out.push_str(text);
+            }
+        }
+    }
+
+    out
 }
 
 fn report_related_information_to_lsp<DB: HasNamedSourceIngredient, G: ModuleGraph>(
@@ -131,7 +143,7 @@ fn report_related_information_to_lsp<DB: HasNamedSourceIngredient, G: ModuleGrap
 
     Some(DiagnosticRelatedInformation {
         location,
-        message: item.message.clone(),
+        message: format_report_render(&item.message),
     })
 }
 
@@ -152,6 +164,7 @@ fn byte_to_position(text: &str, offset: usize, lines: &[String]) -> Position {
         let line_len = line.len() + 1; // +1 for newline
         if byte_count + line_len > offset {
             let char_idx = offset.saturating_sub(byte_count);
+
             return Position {
                 line: line_idx as u32,
                 character: char_idx as u32,

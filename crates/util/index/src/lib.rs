@@ -1,6 +1,6 @@
 mod secondary;
 
-use core::fmt;
+use std::fmt;
 
 pub use parking_lot::{MappedRwLockReadGuard, MappedRwLockWriteGuard};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -16,20 +16,20 @@ macro_rules! define_index_type {
         #[facet(opaque, proxy = u64)]
         $vis struct $name($crate::KeyData);
 
-        impl ::core::convert::From<u64> for $name {
+        impl ::std::convert::From<u64> for $name {
             fn from(u: u64) -> Self {
                 Self($crate::KeyData::from_ffi(u))
             }
         }
 
-        impl ::core::convert::From<&$name> for u64 {
+        impl ::std::convert::From<&$name> for u64 {
             fn from(id: &$name) -> Self {
                 id.0.as_ffi()
             }
         }
 
 
-        impl ::core::convert::From<$crate::KeyData> for $name {
+        impl ::std::convert::From<$crate::KeyData> for $name {
             fn from(k: $crate::KeyData) -> Self {
                 $name(k)
             }
