@@ -1,0 +1,4 @@
+name = "LMT"
+grammar = "lmt"
+path_suffixes = ["lmt"]
+line_comments = ["//"]

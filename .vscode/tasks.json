@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "command": "npm run compile",
+      "options": {
+        "cwd": "${workspaceFolder}/editors/vscode"
+      },
+      "problemMatcher": "$tsc",
+      "label": "npm: compile (vscode extension)",
+      "group": "build"
+    },
+    {
+      "type": "shell",
+      "command": "cargo build --bin lmt-lsp",
+      "problemMatcher": ["$rustc"],
+      "label": "cargo: build lmt-lsp",
+      "group": "build"
+    },
+    {
+      "label": "Build Extension and LSP",
+      "dependsOn": ["npm: compile (vscode extension)", "cargo: build lmt-lsp"],
+      "group": "build"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+id = "lmt"
+name = "LMT Language Support"
+version = "0.0.1"
+schema_version = 1
+authors = ["Lemuel DLS"]
+description = "LMT language support for Zed"
+repository = "https://github.com/lemueldls/lmt"

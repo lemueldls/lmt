@@ -2,19 +2,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug lmt-lsp (CodeLLDB)",
-      "type": "lldb",
+      "name": "Launch VS Code Extension",
+      "type": "extensionHost",
       "request": "launch",
-      "cargo": {
-        "args": ["build", "--bin", "lmt-lsp"],
-        "filter": {
-          "name": "lmt-lsp",
-          "kind": "bin"
-        }
+      "runtimeExecutable": "${execPath}",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/editors/vscode"],
+      "outFiles": ["${workspaceFolder}/editors/vscode/out/**/*.js"],
+      "env": {
+        "LMT_LSP_PATH": "${workspaceFolder}/target/debug/lmt-lsp",
+        "RUST_BACKTRACE": "1"
       },
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "sourceLanguages": ["rust"]
+      "preLaunchTask": "Build Extension and LSP"
     }
   ]
 }

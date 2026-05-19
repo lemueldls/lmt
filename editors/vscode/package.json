@@ -1,0 +1,62 @@
+{
+  "name": "lmt",
+  "displayName": "LMT Language Support",
+  "version": "0.1.0",
+  "description": "Language support for LMT",
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "pnpm compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.14.6",
+    "@types/vscode": "^1.80.0",
+    "oxfmt": "^0.51.0",
+    "oxlint": "^1.66.0",
+    "typescript": "^6.0.3"
+  },
+  "contributes": {
+    "activationEvents": [
+      "onLanguage:plaintext"
+    ],
+    "commands": [
+      {
+        "command": "lmt-vscode.helloWorld",
+        "title": "Hello World"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lmt",
+        "extensions": [
+          ".lmt"
+        ],
+        "aliases": [
+          "LMT",
+          "lmt"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lmt",
+        "scopeName": "source.lmt",
+        "path": "./syntaxes/lmt.tmLanguage.json"
+      }
+    ]
+  },
+  "activationEvents": [
+    "onLanguage:plaintext"
+  ],
+  "engines": {
+    "vscode": "^1.100.0"
+  }
+}
