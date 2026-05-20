@@ -42,7 +42,13 @@ cvc5-rs = { version = "0.3.2" }
 dashmap = { version = "6.1.0" }
 dirs = { version = "6.0.0" }
 ecow = { version = "0.2.6" }
-facet = { version = "0.46.2" }
+
+facet = { version = "0.46.2", features = ["ordered-float"] }
+facet-core = { version = "0.46.2" }
+facet-error = { version = "0.46.2" }
+facet-path = { version = "0.46.2" }
+facet-reflect = { version = "0.46.2" }
+
 figue = { version = "4.0.1" }
 fs4 = { version = "1", features = ["tokio"] }
 futures = { version = "0.3", features = ["alloc"] }
@@ -58,7 +64,7 @@ parking_lot = { version = "0.12.5", features = [
   # "owning_ref",
   # "arc_lock",
 ] }
-picante = { version = "1.0.0" }
+picante = { version = "2.0.0" }
 rand = { version = "0.10.1" }
 rowan = { version = "0.16.1" }
 rustc-hash = { version = "2.1.2" }

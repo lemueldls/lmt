@@ -23,14 +23,11 @@ lmt-index.workspace = true
 lmt-solver.workspace = true
 lmt-syntax.workspace = true
 
-facet = { version = "=0.44.1", features = ["ordered-float"] }
-facet-core = { version = "=0.44.1" }
-facet-dessert = { version = "=0.44.1" }
-facet-error = { version = "=0.44.1" }
-facet-path = { version = "=0.44.1" }
-facet-postcard = { version = "=0.44.1" }
-facet-reflect = { version = "=0.44.1" }
-facet-value = { version = "=0.44.1" }
+facet = { workspace = true }
+facet-core = { workspace = true }
+facet-error = { workspace = true }
+facet-path = { workspace = true }
+facet-reflect = { workspace = true }
 
 parking_lot.workspace = true
 picante.workspace = true
