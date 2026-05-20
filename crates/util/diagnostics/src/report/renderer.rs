@@ -1,13 +1,16 @@
 use crate::report::{FieldInfo, FieldSpan};
 
-#[repr(u8)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ReportRenderItem {
     Text(String),
-    Reference { text: String, span: FieldSpan },
+    Reference {
+        text: String,
+        span: FieldSpan,
+        index: usize,
+    },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ReportRender {
     pub items: Vec<ReportRenderItem>,
 }
@@ -47,8 +50,9 @@ impl ReportRender {
                     if let Some(info) = infos.iter().find(|i| i.name == ident) {
                         if let Some(span) = &info.span {
                             items.push(ReportRenderItem::Reference {
-                                text: info.display.clone().unwrap_or_else(|| ident.clone()),
+                                text: span.content[span.start..span.end].to_string(),
                                 span: span.clone(),
+                                index: info.index,
                             });
                         } else if let Some(disp) = &info.display {
                             items.push(ReportRenderItem::Text(disp.clone()));
@@ -57,15 +61,67 @@ impl ReportRender {
                         }
                     }
                 }
-            } else {
-                let mut text = String::new();
+            } else if ch == '[' {
+                // consume '['
+                chars.next();
+
+                let mut link_text = String::new();
+
                 while let Some(&c) = chars.peek() {
-                    if c == '{' {
+                    chars.next();
+
+                    if c == ']' {
                         break;
                     }
 
-                    text.push(c);
+                    link_text.push(c);
+                }
+
+                if let Some(&'(') = chars.peek() {
+                    // consume '('
                     chars.next();
+
+                    let mut field_name = String::new();
+
+                    while let Some(&c) = chars.peek() {
+                        chars.next();
+
+                        if c == ')' {
+                            break;
+                        }
+
+                        field_name.push(c);
+                    }
+
+                    if let Some(info) = infos.iter().find(|i| i.name == field_name) {
+                        if let Some(span) = &info.span {
+                            items.push(ReportRenderItem::Reference {
+                                text: link_text.clone(),
+                                span: span.clone(),
+                                index: info.index,
+                            });
+                        } else if let Some(disp) = &info.display {
+                            items.push(ReportRenderItem::Text(disp.clone()));
+                        } else {
+                            items.push(ReportRenderItem::Text(link_text.clone()));
+                        }
+                    } else {
+                        items.push(ReportRenderItem::Text(link_text.clone()));
+                    }
+                } else {
+                    items.push(ReportRenderItem::Text(link_text.clone()));
+                }
+            } else {
+                // consume normal text
+                let mut text = String::new();
+
+                while let Some(&c) = chars.peek() {
+                    if c == '{' || c == '[' {
+                        break;
+                    }
+
+                    chars.next();
+                    text.push(c);
                 }
 
                 items.push(ReportRenderItem::Text(text));

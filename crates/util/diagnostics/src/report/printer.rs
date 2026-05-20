@@ -9,19 +9,21 @@ use crate::report::{
 };
 
 pub fn print(report: &Report) {
-    let mut colors = {
+    let infos = &report.fields;
+
+    let colors = {
         let mut colors = [Color::Green, Color::Blue, Color::Magenta, Color::Cyan];
         colors.shuffle(&mut rng());
-        colors.into_iter().cycle()
+
+        colors
+            .into_iter()
+            .cycle()
+            .take(infos.len())
+            .collect::<Vec<_>>()
     };
 
-    let mut infos = report.fields.clone();
-    for info in &mut infos {
-        info.color = colors.next().unwrap();
-    }
-
     let mut max_end_line = 0usize;
-    for info in &infos {
+    for info in infos {
         if let Some(span) = &info.span {
             max_end_line = cmp::max(max_end_line, span.end_line);
         }
@@ -38,11 +40,11 @@ pub fn print(report: &Report) {
         eprintln!(
             "{} {}",
             severity_prefix(report.severity.as_ref()),
-            format_report_render_items(&report.message).bold()
+            format_report_render_items(&report.message, &colors).bold()
         );
     }
 
-    for info in &infos {
+    for info in infos {
         if let Some(span) = &info.span {
             let file_name = &span.file_name;
             let content = &span.content;
@@ -82,7 +84,8 @@ pub fn print(report: &Report) {
                         .saturating_sub(end_range.saturating_sub(col_offset).saturating_sub(1));
                 }
 
-                let content_fragment = style_with_color(&line_code[line_range.clone()], info.color);
+                let content_fragment =
+                    style_with_color(&line_code[line_range.clone()], colors[info.index]);
                 let link = format_osc8_link(
                     &format!("{}:{}:{}", file_name, start_line, start_col),
                     &content_fragment,
@@ -98,7 +101,7 @@ pub fn print(report: &Report) {
 
             if let Some(lbl) = &info.label {
                 let render = ReportRender::parse_report_attr(lbl, &infos);
-                let rendered = format_report_render_items(&render);
+                let rendered = format_report_render_items(&render, &colors);
                 let alignment_col = start_col + (end_col.saturating_sub(start_col)) / 2;
 
                 eprintln!(
@@ -111,7 +114,7 @@ pub fn print(report: &Report) {
                                 format!(
                                     "{spaces} ╵{}{}",
                                     " ".repeat(alignment_col),
-                                    format!("╰╴{}", line).with(info.color)
+                                    format!("╰╴{}", line).with(colors[info.index])
                                 )
                             } else {
                                 format!("{spaces} ╵{}{}", " ".repeat(alignment_col + 2), line)
@@ -127,7 +130,7 @@ pub fn print(report: &Report) {
     }
 
     if let Some(help) = &report.help {
-        eprintln!("{spaces} ╧ {}", format_report_render_items(help));
+        eprintln!("{spaces} ╧ {}", format_report_render_items(help, &colors));
     }
 }
 
@@ -143,14 +146,16 @@ fn severity_prefix(severity: Option<&ReportSeverity>) -> String {
     format!("{}", style(text).with(color))
 }
 
-pub fn format_report_render_items(render: &ReportRender) -> String {
+pub fn format_report_render_items(render: &ReportRender, colors: &[Color]) -> String {
     let mut out = String::new();
 
     for item in &render.items {
         match item {
             ReportRenderItem::Text(text) => out.push_str(&text),
-            ReportRenderItem::Reference { text, span } => {
+            ReportRenderItem::Reference { text, span, index } => {
                 let link = format!("{}:{}:{}", span.file_name, span.start_line, span.start_col);
+                let text = style_with_color(&text, colors[*index]);
+
                 out.push_str(&format_osc8_link(&link, &text));
             }
         }

@@ -3,7 +3,6 @@ mod renderer;
 
 use std::fmt;
 
-use crossterm::style::Color;
 use facet::{Facet, PtrConst, Shape};
 use facet_reflect::{HasFields, Peek};
 use line_col::LineColLookup;
@@ -30,11 +29,11 @@ impl fmt::Display for FieldDisplay {
 }
 
 // Span and field metadata used by the renderer
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FieldSpan {
     pub module_id: ModuleId,
     pub file_name: String,
-    pub content: String,
+    pub content: String, // TODO: Only store the relevant portion of the content
     pub start: usize,
     pub end: usize,
     pub start_line: usize,
@@ -43,10 +42,10 @@ pub struct FieldSpan {
     pub end_col: usize,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FieldInfo {
     pub name: String,
-    pub color: Color,
+    pub index: usize,
     pub span: Option<FieldSpan>,
     pub display: Option<String>,
     pub label: Option<String>,
@@ -82,7 +81,7 @@ pub fn safe_excerpt(content: &str, start: usize, end: usize) -> String {
         .unwrap_or_default()
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Report {
     /// The span at which the message applies.
     pub span: Span,
@@ -106,7 +105,7 @@ pub struct Report {
 }
 
 #[repr(u8)]
-#[derive(Facet, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReportSeverity {
     /// Reports an error.
     Error,
@@ -121,7 +120,7 @@ pub enum ReportSeverity {
 /// Represents a related message and source code location for a diagnostic. This
 /// should be used to point to code locations that cause or related to a
 /// diagnostics, e.g when duplicating a symbol in a scope.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ReportRelatedInformation {
     /// The span of this related diagnostic information.
     pub span: Span,
@@ -210,7 +209,7 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
 
         infos.push(FieldInfo {
             name,
-            color: Color::Cyan,
+            index: infos.len(),
             span: span_meta,
             display,
             label: label_attr,

@@ -25,7 +25,7 @@ pub enum Diagnostic {
     #[facet(diag::label("Invalid directive"))]
     InvalidDirective { directive: Span },
 
-    #[facet(diag::label("Expected field after `.`"))]
+    #[facet(diag::label("Expected field after `{span}`"))]
     ExpectedField { span: Span },
 
     #[facet(diag::label("Expected variant name"))]
@@ -37,7 +37,7 @@ pub enum Diagnostic {
     #[facet(diag::label("Unexpected pattern"))]
     UnexpectedPattern { pattern: Span },
 
-    #[facet(diag::label("Variable {var} not found"))]
+    #[facet(diag::label("Variable `{var}` not found"))]
     VariableNotFound { var: Span },
 }
 
