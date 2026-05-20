@@ -4,10 +4,6 @@ LMT (pronounced "limit"), the Language of Meaning & Types, is a proof-oriented m
 that types and values live in the same logical space, letting programs express contracts, refinements, and proof
 obligations that are checked at compile time.
 
-The core idea is simple: source code is parsed into a typed intermediate form, checked bidirectionally, and then
-translated into verification conditions for an SMT solver such as cvc5. That makes LMT a language for writing
-specifications first, then proving that implementations satisfy them.
-
 ## What LMT is for
 
 LMT is meant to be the specification layer that sits alongside ordinary codebases. It can describe invariants,
@@ -18,8 +14,7 @@ Its goals are:
 - make program properties explicit and machine-checkable
 - keep specifications close to the source they describe
 - support compile-time verification instead of runtime assertions
-- integrate with multiple host languages instead of replacing them
-- support synthesis when a contract describes what must exist, but not how to build it
+- support synthesis when a contract describes what must exist
 
 ## Core model
 
