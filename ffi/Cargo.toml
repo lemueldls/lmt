@@ -1,5 +1,6 @@
 [package]
 name = "lmt-ffi"
+description = "FFI bindings and helpers for LMT"
 version = "0.1.0"
 edition = "2024"
 # version.workspace = true

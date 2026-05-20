@@ -1,3 +1,5 @@
+//! lmt-index - Indexing utilities for LMT
+
 mod secondary;
 
 use std::fmt;

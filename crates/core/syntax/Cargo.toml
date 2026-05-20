@@ -1,5 +1,6 @@
 [package]
 name = "lmt-syntax"
+description = "Parser and syntax utilities for LMT"
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true

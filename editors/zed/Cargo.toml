@@ -1,5 +1,6 @@
 [package]
 name = "zed-lmt"
+description = "Zed editor extension for LMT"
 version = "0.1.0"
 edition = "2024"
 

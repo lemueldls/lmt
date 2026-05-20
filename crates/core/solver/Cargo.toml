@@ -1,5 +1,6 @@
 [package]
 name = "lmt-solver"
+description = "SMT solver integration for LMT"
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true

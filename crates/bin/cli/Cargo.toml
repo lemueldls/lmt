@@ -1,5 +1,6 @@
 [package]
 name = "lmt-cli"
+description = "Command-line interface for LMT"
 default-run = "lmt"
 version.workspace = true
 rust-version.workspace = true

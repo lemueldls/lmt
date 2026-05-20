@@ -1,5 +1,6 @@
 [package]
 name = "lmt-lsp"
+description = "Language Server Protocol server for LMT"
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true

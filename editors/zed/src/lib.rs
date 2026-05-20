@@ -1,3 +1,5 @@
+//! zed-lmt - Zed editor extension for LMT
+
 use zed_extension_api::{self as zed, Result};
 
 struct LmtExtension;

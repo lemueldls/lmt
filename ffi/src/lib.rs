@@ -1,3 +1,5 @@
+//! lmt-ffi - Foreign-function interface helpers for LMT
+
 use boltffi::*;
 
 #[boltffi::data]

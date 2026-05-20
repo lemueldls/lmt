@@ -1,5 +1,6 @@
 [package]
 name = "lmt-checker"
+description = "Type checker and semantic analysis for LMT"
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true

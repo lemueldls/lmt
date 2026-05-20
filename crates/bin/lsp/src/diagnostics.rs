@@ -105,7 +105,7 @@ fn format_report_render(render: &ReportRender) -> String {
     for item in &render.items {
         match item {
             ReportRenderItem::Text(text) => out.push_str(text),
-            ReportRenderItem::Reference { text, span } => {
+            ReportRenderItem::Reference { text, .. } => {
                 // For simplicity, we'll just include the text. In a real implementation,
                 // we might want to include more info or format it differently.
                 out.push_str(text);

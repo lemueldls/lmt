@@ -1,5 +1,6 @@
 [package]
 name = "lmt-diagnostics"
+description = "Diagnostics and reporting utilities for LMT"
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true
