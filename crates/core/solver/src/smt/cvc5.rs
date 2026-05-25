@@ -10,7 +10,14 @@ pub struct Cvc5Solver {
     vars: HashMap<String, Term>,
 }
 
+impl Default for Cvc5Solver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cvc5Solver {
+    #[must_use]
     pub fn new() -> Self {
         let tm = TermManager::new();
         let mut solver = Solver::new(&tm);
@@ -31,7 +38,7 @@ impl Cvc5Solver {
             // Default to Int sort for now if undeclared
             let int_sort = self.tm.integer_sort();
             let var = self.tm.mk_const(int_sort, name);
-            self.vars.insert(name.to_string(), var.clone());
+            self.vars.insert(name.to_owned(), var.clone());
 
             var
         }

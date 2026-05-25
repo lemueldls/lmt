@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fmt::Write, fs, path::PathBuf};
 
 use lmt_diagnostics::{
     ModuleId,
@@ -12,12 +12,14 @@ fn render_tokens(src: &str, module_id: ModuleId) -> String {
     let mut out = String::new();
 
     for token in tokens {
-        out.push_str(&format!(
-            "{:?}@{}..{}\n",
+        writeln!(
+            out,
+            "{:?}@{}..{}",
             token.kind,
             token.span.start().unwrap(),
             token.span.end().unwrap()
-        ));
+        )
+        .unwrap();
     }
 
     out

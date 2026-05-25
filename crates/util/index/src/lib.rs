@@ -1,4 +1,4 @@
-//! lmt-index - Indexing utilities for LMT
+//! lmt-index - Indexing utilities for LMT.
 
 mod secondary;
 
@@ -75,11 +75,11 @@ impl<K: Key, T> SlotLockMap<K, T> {
         }
     }
 
-    pub fn get<'a>(&'a self, index: K) -> MappedRwLockReadGuard<'a, T> {
+    pub fn get(&self, index: K) -> MappedRwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.map.read(), |map| &map[index])
     }
 
-    pub fn get_mut<'a>(&'a self, index: K) -> MappedRwLockWriteGuard<'a, T> {
+    pub fn get_mut(&self, index: K) -> MappedRwLockWriteGuard<'_, T> {
         RwLockWriteGuard::map(self.map.write(), |map| &mut map[index])
     }
 

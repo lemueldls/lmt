@@ -1,4 +1,10 @@
-use lmt_diagnostics::{ModuleId, source::*};
+use lmt_diagnostics::{
+    ModuleId,
+    source::{
+        HasNamedSourceIngredient, NamedSource, NamedSourceDataIngredient,
+        NamedSourceKeysIngredient, make_named_source_data, make_named_source_keys,
+    },
+};
 use picante::PicanteResult;
 
 use crate::{
@@ -10,7 +16,7 @@ use crate::{
 pub struct SyntaxDatabase {}
 
 #[picante::tracked]
-pub async fn tokenize<DB: SyntaxDatabaseTrait>(
+pub fn tokenize<DB: SyntaxDatabaseTrait>(
     db: &DB,
     source: NamedSource,
 ) -> PicanteResult<Vec<Token>> {
@@ -20,6 +26,7 @@ pub async fn tokenize<DB: SyntaxDatabaseTrait>(
     Ok(tokenize_source(&content, module_id))
 }
 
+#[must_use]
 pub fn tokenize_source(content: &str, module_id: ModuleId) -> Vec<Token> {
     let mut tokens = Vec::new();
 
@@ -47,7 +54,7 @@ pub fn tokenize_source(content: &str, module_id: ModuleId) -> Vec<Token> {
 }
 
 #[picante::tracked]
-pub async fn tokenize_window<DB: SyntaxDatabaseTrait>(
+pub fn tokenize_window<DB: SyntaxDatabaseTrait>(
     db: &DB,
     source: NamedSource,
     start: usize,

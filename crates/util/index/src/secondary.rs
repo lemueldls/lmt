@@ -31,16 +31,17 @@ impl<K: Key, T> SecondarySlotLockMap<K, T> {
         }
     }
 
-    pub fn get<'a>(&'a self, index: K) -> MappedRwLockReadGuard<'a, T> {
+    pub fn get(&self, index: K) -> MappedRwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.map.read(), |map| &map[index])
     }
 
-    pub fn get_mut<'a>(&'a self, index: K) -> MappedRwLockWriteGuard<'a, T> {
+    pub fn get_mut(&self, index: K) -> MappedRwLockWriteGuard<'_, T> {
         RwLockWriteGuard::map(self.map.write(), |map| &mut map[index])
     }
 
     pub fn insert(&self, key: K, value: T) {
-        if let Some(_previous) = self.map.write().insert(key, value) {
+        let value = self.map.write().insert(key, value);
+        if let Some(_previous) = value {
             todo!("huh")
         }
     }

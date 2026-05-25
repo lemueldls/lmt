@@ -1,9 +1,4 @@
-mod client_builder;
-mod client_trait;
 mod diagnostics;
-mod inspector;
-mod server_builder;
-mod server_trait;
 mod state;
 
 use std::ops::ControlFlow;
@@ -44,9 +39,10 @@ fn publish_source_diagnostics(state: &ServerState, uri: Url, text: String) {
         let reports = source_diagnostics
             .into_iter()
             .map(|diag| diag.to_report(&*db, &*graph_guard))
-            .collect();
+            .collect::<Box<[_]>>();
 
-        let lsp_diagnostics = diagnostics::to_lsp_diagnostics(&*db, &*graph_guard, reports);
+        let lsp_diagnostics = diagnostics::to_lsp_diagnostics(&*db, &*graph_guard, &reports);
+        drop(graph_guard);
 
         let _ = client.notify::<notification::PublishDiagnostics>(PublishDiagnosticsParams {
             uri,
@@ -56,7 +52,7 @@ fn publish_source_diagnostics(state: &ServerState, uri: Url, text: String) {
     });
 }
 
-/// LSP Server implementation using async-lsp Router pattern
+/// LSP Server implementation using async-lsp Router pattern.
 impl LanguageServer for ServerState {
     type Error = ResponseError;
     type NotifyResult = ControlFlow<async_lsp::Result<()>>;
@@ -76,8 +72,8 @@ impl LanguageServer for ServerState {
                     ..ServerCapabilities::default()
                 },
                 server_info: Some(lsp_types::ServerInfo {
-                    name: "LMT Language Server".to_string(),
-                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                    name: "LMT Language Server".to_owned(),
+                    version: Some(env!("CARGO_PKG_VERSION").to_owned()),
                 }),
             })
         })
@@ -121,7 +117,7 @@ impl LanguageServer for ServerState {
 
     fn did_open(&mut self, params: DidOpenTextDocumentParams) -> Self::NotifyResult {
         let uri = params.text_document.uri.clone();
-        let text = params.text_document.text.clone();
+        let text = params.text_document.text;
 
         // Store document
         self.insert_document(uri.clone(), text.clone());
@@ -143,7 +139,7 @@ impl LanguageServer for ServerState {
     }
 
     fn did_save(&mut self, params: DidSaveTextDocumentParams) -> Self::NotifyResult {
-        let uri = params.text_document.uri.clone();
+        let uri = params.text_document.uri;
 
         // Re-check and publish diagnostics on save (use stored document content)
         if let Some(text) = self.get_document(&uri) {
@@ -154,7 +150,7 @@ impl LanguageServer for ServerState {
     }
 
     fn did_close(&mut self, params: DidCloseTextDocumentParams) -> Self::NotifyResult {
-        let uri = params.text_document.uri.clone();
+        let uri = params.text_document.uri;
 
         // Remove document and clear diagnostics
         self.remove_document(&uri);

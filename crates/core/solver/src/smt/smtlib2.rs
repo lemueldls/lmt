@@ -1,25 +1,35 @@
+use std::fmt::Write;
+
 use crate::{Quantifier, SmtExpr, SmtOp, SmtSolver, SmtSort, SolverError};
 
 pub struct SmtLib2Solver {
     pub output: String,
 }
 
+impl Default for SmtLib2Solver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SmtLib2Solver {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             output: String::new(),
         }
     }
 
+    #[must_use]
     pub fn to_smtlib2(expr: &SmtExpr) -> String {
         match expr {
             SmtExpr::Var(v) => v.clone(),
             SmtExpr::Int(i) => i.to_string(),
             SmtExpr::Bool(b) => {
                 if *b {
-                    "true".to_string()
+                    "true".to_owned()
                 } else {
-                    "false".to_string()
+                    "false".to_owned()
                 }
             }
             SmtExpr::App(op, args) => {
@@ -38,7 +48,7 @@ impl SmtLib2Solver {
                     SmtOp::Mul => "*",
                     SmtOp::Div => "div",
                 };
-                let args_str: Vec<String> = args.iter().map(|a| Self::to_smtlib2(a)).collect();
+                let args_str: Vec<String> = args.iter().map(Self::to_smtlib2).collect();
 
                 format!("({} {})", op_str, args_str.join(" "))
             }
@@ -55,7 +65,7 @@ impl SmtLib2Solver {
                             SmtSort::Bool => "Bool",
                         };
 
-                        format!("({} {})", v, sort_str)
+                        format!("({v} {sort_str})")
                     })
                     .collect();
 
@@ -74,13 +84,11 @@ impl SmtSolver for SmtLib2Solver {
     fn check_validity(&mut self, env: &[SmtExpr], vc: &SmtExpr) -> Result<bool, SolverError> {
         self.output.clear();
         for assertion in env {
-            self.output
-                .push_str(&format!("(assert {})\n", Self::to_smtlib2(assertion)));
+            writeln!(self.output, "(assert {})", Self::to_smtlib2(assertion)).unwrap();
         }
         let not_vc = SmtExpr::app(SmtOp::Not, vec![vc.clone()]);
-        self.output
-            .push_str(&format!("(assert {})\n", Self::to_smtlib2(&not_vc)));
-        self.output.push_str("(check-sat)\n");
+        writeln!(self.output, "(assert {})", Self::to_smtlib2(&not_vc)).unwrap();
+        writeln!(self.output, "(check-sat)").unwrap();
 
         Err(SolverError::Unsupported(
             "SmtLib2Solver only generates strings".into(),
@@ -90,10 +98,9 @@ impl SmtSolver for SmtLib2Solver {
     fn check_sat(&mut self, assertions: &[SmtExpr]) -> Result<bool, SolverError> {
         self.output.clear();
         for assertion in assertions {
-            self.output
-                .push_str(&format!("(assert {})\n", Self::to_smtlib2(assertion)));
+            writeln!(self.output, "(assert {})", Self::to_smtlib2(assertion)).unwrap();
         }
-        self.output.push_str("(check-sat)\n");
+        writeln!(self.output, "(check-sat)").unwrap();
 
         Err(SolverError::Unsupported(
             "SmtLib2Solver only generates strings".into(),

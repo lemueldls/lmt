@@ -29,5 +29,5 @@ pub trait ModuleGraph {
     fn module_id(&self, name: &str) -> Option<ModuleId>;
 
     /// Get the source of a module by its id.
-    fn get<'a>(&'a self, module_id: ModuleId) -> MappedRwLockReadGuard<'a, NamedSource>;
+    fn get(&self, module_id: ModuleId) -> MappedRwLockReadGuard<'_, NamedSource>;
 }

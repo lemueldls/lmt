@@ -11,11 +11,11 @@ use parking_lot::RwLock;
 #[derive(Clone)]
 pub struct ServerState {
     pub client: ClientSocket,
-    /// Open documents: URI → text content
+    /// Open documents: URI → text content.
     pub documents: Arc<RwLock<HashMap<Url, String>>>,
-    /// Shared incremental database
+    /// Shared incremental database.
     pub db: Arc<SyntaxDatabase>,
-    /// In-memory module graph for virtual file contents
+    /// In-memory module graph for virtual file contents.
     pub graph: Arc<RwLock<LspGraph>>,
 }
 

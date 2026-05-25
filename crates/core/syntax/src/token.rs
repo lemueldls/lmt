@@ -13,7 +13,8 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, start: usize, end: usize, module_id: ModuleId) -> Self {
+    #[must_use]
+    pub const fn new(kind: TokenKind, start: usize, end: usize, module_id: ModuleId) -> Self {
         Self {
             kind,
             span: Span::new(start, end, module_id),
@@ -76,53 +77,53 @@ pub enum TokenKind {
 impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            TokenKind::Let => write!(f, "let"),
-            TokenKind::If => write!(f, "if"),
-            TokenKind::Else => write!(f, "else"),
-            TokenKind::Match => write!(f, "match"),
-            TokenKind::Use => write!(f, "use"),
-            TokenKind::And => write!(f, "and"),
-            TokenKind::Or => write!(f, "or"),
-            TokenKind::Not => write!(f, "not"),
-            TokenKind::Ident(name) => write!(f, "{name}"),
-            TokenKind::Directive(name) => write!(f, "@{name}"),
-            TokenKind::Int(value) => write!(f, "{value}"),
-            TokenKind::Real(value) => write!(f, "{value}"),
-            TokenKind::String(value) => write!(f, "\"{value}\""),
-            TokenKind::True => write!(f, "true"),
-            TokenKind::False => write!(f, "false"),
-            TokenKind::Hole => write!(f, "?"),
-            TokenKind::DoubleHole => write!(f, "??"),
-            TokenKind::LParen => write!(f, "("),
-            TokenKind::RParen => write!(f, ")"),
-            TokenKind::LBrace => write!(f, "{{"),
-            TokenKind::RBrace => write!(f, "}}"),
-            TokenKind::LBracket => write!(f, "["),
-            TokenKind::RBracket => write!(f, "]"),
-            TokenKind::Dot => write!(f, "."),
-            TokenKind::Comma => write!(f, ","),
-            TokenKind::Semi => write!(f, ";"),
-            TokenKind::Colon => write!(f, ":"),
-            TokenKind::ColonColon => write!(f, "::"),
-            TokenKind::Arrow => write!(f, "->"),
-            TokenKind::FatArrow => write!(f, "=>"),
-            TokenKind::Pipe => write!(f, "|"),
-            TokenKind::EqEq => write!(f, "=="),
-            TokenKind::Assign => write!(f, "="),
-            TokenKind::Ne => write!(f, "!="),
-            TokenKind::Lt => write!(f, "<"),
-            TokenKind::Le => write!(f, "<="),
-            TokenKind::Gt => write!(f, ">"),
-            TokenKind::Ge => write!(f, ">="),
-            TokenKind::Plus => write!(f, "+"),
-            TokenKind::Minus => write!(f, "-"),
-            TokenKind::Star => write!(f, "*"),
-            TokenKind::Slash => write!(f, "/"),
-            TokenKind::Percent => write!(f, "%"),
-            TokenKind::Caret => write!(f, "^"),
-            TokenKind::Amp => write!(f, "&"),
-            TokenKind::EOF => write!(f, "<EOF>"),
-            TokenKind::Error(error) => write!(f, "<ERROR: {error:?}>"),
+            Self::Let => write!(f, "let"),
+            Self::If => write!(f, "if"),
+            Self::Else => write!(f, "else"),
+            Self::Match => write!(f, "match"),
+            Self::Use => write!(f, "use"),
+            Self::And => write!(f, "and"),
+            Self::Or => write!(f, "or"),
+            Self::Not => write!(f, "not"),
+            Self::Ident(name) => write!(f, "{name}"),
+            Self::Directive(name) => write!(f, "@{name}"),
+            Self::Int(value) => write!(f, "{value}"),
+            Self::Real(value) => write!(f, "{value}"),
+            Self::String(value) => write!(f, "\"{value}\""),
+            Self::True => write!(f, "true"),
+            Self::False => write!(f, "false"),
+            Self::Hole => write!(f, "?"),
+            Self::DoubleHole => write!(f, "??"),
+            Self::LParen => write!(f, "("),
+            Self::RParen => write!(f, ")"),
+            Self::LBrace => write!(f, "{{"),
+            Self::RBrace => write!(f, "}}"),
+            Self::LBracket => write!(f, "["),
+            Self::RBracket => write!(f, "]"),
+            Self::Dot => write!(f, "."),
+            Self::Comma => write!(f, ","),
+            Self::Semi => write!(f, ";"),
+            Self::Colon => write!(f, ":"),
+            Self::ColonColon => write!(f, "::"),
+            Self::Arrow => write!(f, "->"),
+            Self::FatArrow => write!(f, "=>"),
+            Self::Pipe => write!(f, "|"),
+            Self::EqEq => write!(f, "=="),
+            Self::Assign => write!(f, "="),
+            Self::Ne => write!(f, "!="),
+            Self::Lt => write!(f, "<"),
+            Self::Le => write!(f, "<="),
+            Self::Gt => write!(f, ">"),
+            Self::Ge => write!(f, ">="),
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Star => write!(f, "*"),
+            Self::Slash => write!(f, "/"),
+            Self::Percent => write!(f, "%"),
+            Self::Caret => write!(f, "^"),
+            Self::Amp => write!(f, "&"),
+            Self::EOF => write!(f, "<EOF>"),
+            Self::Error(error) => write!(f, "<ERROR: {error:?}>"),
         }
     }
 }
@@ -139,19 +140,20 @@ pub enum TokenError {
 }
 
 impl TokenError {
+    #[must_use]
     pub fn diagnostic(&self, span: Span) -> Diagnostic {
         match self {
-            TokenError::UnexpectedToken(kind) => {
+            Self::UnexpectedToken(kind) => {
                 Diagnostic::UnexpectedToken {
                     kind: *kind.clone(),
                     token: span,
                 }
             }
-            TokenError::UnknownToken => Diagnostic::UnknownToken { token: span },
-            TokenError::UnterminatedString => Diagnostic::UnterminatedString { string: span },
-            TokenError::InvalidInteger => Diagnostic::InvalidInteger { integer: span },
-            TokenError::InvalidReal => Diagnostic::InvalidReal { real: span },
-            TokenError::InvalidDirective => Diagnostic::InvalidDirective { directive: span },
+            Self::UnknownToken => Diagnostic::UnknownToken { token: span },
+            Self::UnterminatedString => Diagnostic::UnterminatedString { string: span },
+            Self::InvalidInteger => Diagnostic::InvalidInteger { integer: span },
+            Self::InvalidReal => Diagnostic::InvalidReal { real: span },
+            Self::InvalidDirective => Diagnostic::InvalidDirective { directive: span },
         }
     }
 }

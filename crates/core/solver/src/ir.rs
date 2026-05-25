@@ -39,8 +39,8 @@ pub enum SmtExpr {
     Var(String),
     Int(i64),
     Bool(bool),
-    App(SmtOp, Vec<SmtExpr>),
-    Quantifier(Quantifier, Vec<(String, SmtSort)>, Box<SmtExpr>),
+    App(SmtOp, Vec<Self>),
+    Quantifier(Quantifier, Vec<(String, SmtSort)>, Box<Self>),
 }
 
 impl SmtExpr {
@@ -48,38 +48,41 @@ impl SmtExpr {
         Self::Var(name.into())
     }
 
-    pub fn app(op: SmtOp, args: Vec<SmtExpr>) -> Self {
+    #[must_use]
+    pub const fn app(op: SmtOp, args: Vec<Self>) -> Self {
         Self::App(op, args)
     }
 
-    pub fn implies(lhs: SmtExpr, rhs: SmtExpr) -> Self {
+    #[must_use]
+    pub fn implies(lhs: Self, rhs: Self) -> Self {
         Self::app(SmtOp::Implies, vec![lhs, rhs])
     }
 
-    pub fn substitute(&self, var: &str, replacement: &SmtExpr) -> Self {
+    #[must_use]
+    pub fn substitute(&self, var: &str, replacement: &Self) -> Self {
         match self {
-            SmtExpr::Var(v) => {
+            Self::Var(v) => {
                 if v == var {
                     replacement.clone()
                 } else {
                     self.clone()
                 }
             }
-            SmtExpr::Int(i) => SmtExpr::Int(*i),
-            SmtExpr::Bool(b) => SmtExpr::Bool(*b),
-            SmtExpr::App(op, args) => {
-                SmtExpr::App(
+            Self::Int(i) => Self::Int(*i),
+            Self::Bool(b) => Self::Bool(*b),
+            Self::App(op, args) => {
+                Self::App(
                     op.clone(),
                     args.iter()
                         .map(|a| a.substitute(var, replacement))
                         .collect(),
                 )
             }
-            SmtExpr::Quantifier(q, vars, body) => {
+            Self::Quantifier(q, vars, body) => {
                 if vars.iter().any(|(v, _)| v == var) {
                     self.clone()
                 } else {
-                    SmtExpr::Quantifier(
+                    Self::Quantifier(
                         q.clone(),
                         vars.clone(),
                         Box::new(body.substitute(var, replacement)),

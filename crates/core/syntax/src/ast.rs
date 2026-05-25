@@ -59,59 +59,59 @@ pub enum Expr {
     },
     Unary {
         op: UnaryOp,
-        expr: Box<Expr>,
+        expr: Box<Self>,
         span: Span,
     },
     Binary {
-        left: Box<Expr>,
+        left: Box<Self>,
         op: BinaryOp,
-        right: Box<Expr>,
+        right: Box<Self>,
         span: Span,
     },
     Call {
-        callee: Box<Expr>,
-        args: Vec<Expr>,
+        callee: Box<Self>,
+        args: Vec<Self>,
         span: Span,
     },
     FieldAccess {
-        base: Box<Expr>,
+        base: Box<Self>,
         field: String,
         span: Span,
     },
     Block {
         statements: Vec<Statement>,
-        tail: Option<Box<Expr>>,
+        tail: Option<Box<Self>>,
         span: Span,
     },
     If {
-        condition: Box<Expr>,
-        then_branch: Box<Expr>,
-        else_branch: Option<Box<Expr>>,
+        condition: Box<Self>,
+        then_branch: Box<Self>,
+        else_branch: Option<Box<Self>>,
         span: Span,
     },
     Match {
-        scrutinee: Box<Expr>,
+        scrutinee: Box<Self>,
         arms: Vec<MatchArm>,
         span: Span,
     },
     Variant {
         name: String,
-        args: Vec<Expr>,
+        args: Vec<Self>,
         span: Span,
     },
     Paren {
-        expr: Box<Expr>,
+        expr: Box<Self>,
         span: Span,
     },
     Refinement {
-        base: Box<Expr>,
+        base: Box<Self>,
         binder: Option<String>,
-        predicate: Box<Expr>,
+        predicate: Box<Self>,
         span: Span,
     },
     Ascription {
-        left: Box<Expr>,
-        right: Box<Expr>,
+        left: Box<Self>,
+        right: Box<Self>,
         span: Span,
     },
     Error {
@@ -120,26 +120,27 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn span(&self) -> Span {
+    #[must_use]
+    pub const fn span(&self) -> Span {
         match self {
-            Expr::LiteralInt { span, .. }
-            | Expr::LiteralReal { span, .. }
-            | Expr::LiteralString { span, .. }
-            | Expr::LiteralBool { span, .. }
-            | Expr::Var { span, .. }
-            | Expr::Hole { span }
-            | Expr::Unary { span, .. }
-            | Expr::Binary { span, .. }
-            | Expr::Call { span, .. }
-            | Expr::FieldAccess { span, .. }
-            | Expr::Block { span, .. }
-            | Expr::If { span, .. }
-            | Expr::Match { span, .. }
-            | Expr::Variant { span, .. }
-            | Expr::Paren { span, .. }
-            | Expr::Refinement { span, .. }
-            | Expr::Ascription { span, .. }
-            | Expr::Error { span } => *span,
+            Self::LiteralInt { span, .. }
+            | Self::LiteralReal { span, .. }
+            | Self::LiteralString { span, .. }
+            | Self::LiteralBool { span, .. }
+            | Self::Var { span, .. }
+            | Self::Hole { span }
+            | Self::Unary { span, .. }
+            | Self::Binary { span, .. }
+            | Self::Call { span, .. }
+            | Self::FieldAccess { span, .. }
+            | Self::Block { span, .. }
+            | Self::If { span, .. }
+            | Self::Match { span, .. }
+            | Self::Variant { span, .. }
+            | Self::Paren { span, .. }
+            | Self::Refinement { span, .. }
+            | Self::Ascription { span, .. }
+            | Self::Error { span } => *span,
         }
     }
 }
@@ -178,7 +179,7 @@ pub enum Pattern {
     LiteralString(String),
     LiteralBool(bool),
     Ident(String),
-    Variant { name: String, args: Vec<Pattern> },
+    Variant { name: String, args: Vec<Self> },
     Wildcard,
     Error,
 }

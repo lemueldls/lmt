@@ -9,13 +9,13 @@ pub enum Type {
     Bool,
     String,
     Refinement {
-        base: Box<Type>,
+        base: Box<Self>,
         binder: String,
         predicate: SmtExpr,
     },
     Arrow {
-        params: Vec<Type>,
-        ret: Box<Type>,
+        params: Vec<Self>,
+        ret: Box<Self>,
     },
     Error,
 }
@@ -24,11 +24,19 @@ pub enum Type {
 #[facet(transparent)]
 pub struct Env(pub Vec<(String, Type)>);
 
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Env {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self(Vec::new())
     }
 
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<Type> {
         self.0
             .iter()
@@ -37,6 +45,7 @@ impl Env {
             .map(|(_, v)| v.clone())
     }
 
+    #[must_use]
     pub fn extend(&self, name: String, ty: Type) -> Self {
         let mut new_env = self.0.clone();
         new_env.push((name, ty));

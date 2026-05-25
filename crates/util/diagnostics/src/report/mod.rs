@@ -54,6 +54,7 @@ pub struct FieldInfo {
 /// Safely get a substring of `content` by byte offsets `start..end`.
 /// If the byte indices are not on UTF-8 char boundaries this will
 /// fallback to the nearest valid boundaries. Returns an owned String.
+#[must_use]
 pub fn safe_excerpt(content: &str, start: usize, end: usize) -> String {
     if start >= end || start >= content.len() {
         return String::new();
@@ -67,17 +68,15 @@ pub fn safe_excerpt(content: &str, start: usize, end: usize) -> String {
     let s_idx = content
         .char_indices()
         .find(|&(i, _)| i >= start)
-        .map(|(i, _)| i)
-        .unwrap_or(content.len());
+        .map_or(content.len(), |(i, _)| i);
     let e_idx = content
         .char_indices()
         .find(|&(i, _)| i >= end)
-        .map(|(i, _)| i)
-        .unwrap_or(content.len());
+        .map_or(content.len(), |(i, _)| i);
 
     content
         .get(s_idx..e_idx)
-        .map(|s| s.to_string())
+        .map(str::to_owned)
         .unwrap_or_default()
 }
 
@@ -129,6 +128,11 @@ pub struct ReportRelatedInformation {
     pub message: ReportRender,
 }
 
+/// Converts a facet-based diagnostic into a [`Report`].
+///
+/// # Panics
+///
+/// Panics if the facet cannot be converted into an enum or if the active variant cannot be determined.
 pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSourceIngredient>(
     t: &'mem T,
     db: &DB,
@@ -140,17 +144,17 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
     let variant_label = variant
         .get_attr(Some("diagnostics"), "label")
         .and_then(|attr| attr.get_as::<&str>())
-        .map(|attr| attr.to_string());
+        .map(<&str>::to_string);
 
     let variant_help = variant
         .get_attr(Some("diagnostics"), "help")
         .and_then(|attr| attr.get_as::<&str>())
-        .map(|attr| attr.to_string());
+        .map(<&str>::to_string);
 
     let variant_severity = variant
         .get_attr(Some("diagnostics"), "severity")
         .and_then(|attr| attr.get_as::<&str>())
-        .map(|attr| attr.to_string());
+        .map(<&str>::to_string);
 
     let mut infos = Vec::new();
 
@@ -168,6 +172,7 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
                     let source = graph.get(module_id);
                     let file_name = source.name(db).unwrap().to_string();
                     let content = source.content(db).unwrap();
+                    drop(source);
 
                     let lookup = LineColLookup::new(&content);
                     let (start_line, start_col) = lookup.get(start);
@@ -176,7 +181,7 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
                     span_meta = Some(FieldSpan {
                         module_id,
                         file_name,
-                        content: content.to_string(),
+                        content: content.clone(),
                         start,
                         end,
                         start_line,
@@ -205,7 +210,7 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
         let label_attr = field
             .get_attr(Some("diagnostics"), "label")
             .and_then(|attr| attr.get_as::<&str>())
-            .map(|attr| attr.to_string());
+            .map(<&str>::to_string);
 
         infos.push(FieldInfo {
             name,
@@ -216,10 +221,10 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
         });
     }
 
-    let message = variant_label
-        .as_deref()
-        .map(|label| ReportRender::parse_report_attr(label, &infos))
-        .unwrap_or_else(|| ReportRender::text("diagnostic"));
+    let message = variant_label.as_deref().map_or_else(
+        || ReportRender::text("diagnostic"),
+        |label| ReportRender::parse_report_attr(label, &infos),
+    );
 
     let help = variant_help
         .as_deref()
@@ -238,14 +243,13 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
     let span = infos
         .iter()
         .find_map(|info| info.span.as_ref())
-        .map(|span| {
+        .map_or(Span::Unknown, |span| {
             Span::Known {
                 start: span.start,
                 end: span.end,
                 module_id: span.module_id,
             }
-        })
-        .unwrap_or(Span::Unknown);
+        });
 
     let related_information = {
         let mut related = Vec::new();
@@ -257,20 +261,18 @@ pub fn from_diagnostic<'mem, 'facet, T: Facet<'facet> + ?Sized, DB: HasNamedSour
                     end: primary_end,
                     module_id: primary_module_id,
                 } = span
+                    && field_span.start == primary_start
+                    && field_span.end == primary_end
+                    && field_span.module_id == primary_module_id
                 {
-                    if field_span.start == primary_start
-                        && field_span.end == primary_end
-                        && field_span.module_id == primary_module_id
-                    {
-                        continue;
-                    }
+                    continue;
                 }
 
                 let message = info
                     .label
                     .as_deref()
                     .map(|label| ReportRender::parse_report_attr(label, &infos))
-                    .or_else(|| info.display.clone().map(|s| ReportRender::text(s)))
+                    .or_else(|| info.display.clone().map(ReportRender::text))
                     .unwrap_or_else(|| ReportRender::text(info.name.clone()));
 
                 related.push(ReportRelatedInformation {

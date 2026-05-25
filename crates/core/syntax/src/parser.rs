@@ -18,7 +18,7 @@ struct Parser {
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>, module_id: ModuleId) -> Self {
+    const fn new(tokens: Vec<Token>, module_id: ModuleId) -> Self {
         Self {
             tokens,
             pos: 0,
@@ -73,7 +73,7 @@ impl Parser {
 
         let idx = self.pos.min(self.tokens.len().saturating_sub(1));
 
-        self.tokens[idx].span.clone()
+        self.tokens[idx].span
     }
 
     fn parse_program(&mut self) -> Vec<(Statement, Span)> {
@@ -509,6 +509,8 @@ impl Parser {
 
     fn parse_primary(&mut self) -> Expr {
         let start_idx = self.pos;
+
+        #[allow(clippy::match_same_arms)]
         match self.peek_kind() {
             TokenKind::Int(n) => {
                 let v = *n;
@@ -555,6 +557,7 @@ impl Parser {
             }
             TokenKind::Hole => {
                 self.bump();
+
                 Expr::Hole {
                     span: self.mark_span_from(start_idx, self.pos.saturating_sub(1)),
                 }
@@ -601,10 +604,10 @@ impl Parser {
                 }
 
                 // optional tail expr
-                let tail = if !matches!(self.peek_kind(), TokenKind::RBrace) {
-                    Some(Box::new(self.parse_verification_expr()))
-                } else {
+                let tail = if matches!(self.peek_kind(), TokenKind::RBrace) {
                     None
+                } else {
+                    Some(Box::new(self.parse_verification_expr()))
                 };
 
                 if matches!(self.peek_kind(), TokenKind::RBrace) {
@@ -621,12 +624,11 @@ impl Parser {
                 self.bump();
                 let condition = Box::new(self.parse_verification_expr());
                 let then_branch = Box::new(self.parse_primary());
-                let mut else_branch = None;
-
-                if self.consume_if(&TokenKind::Else) {
-                    // else can be block or if (handled by parse_primary)
-                    else_branch = Some(Box::new(self.parse_primary()));
-                }
+                let else_branch = if self.consume_if(&TokenKind::Else) {
+                    Some(Box::new(self.parse_primary()))
+                } else {
+                    None
+                };
 
                 Expr::If {
                     condition,
@@ -827,6 +829,7 @@ pub async fn parse_program<DB: SyntaxDatabaseTrait>(
     Ok((Program { statements }, diagnostics))
 }
 
+#[must_use]
 pub fn parse_program_source_with_diagnostics(
     src: &str,
     module_id: ModuleId,
@@ -843,6 +846,7 @@ pub fn parse_program_source_with_diagnostics(
     (Program { statements }, diagnostics)
 }
 
+#[must_use]
 pub fn parse_program_source(src: &str, module_id: ModuleId) -> Program {
     let (program, _) = parse_program_source_with_diagnostics(src, module_id);
 

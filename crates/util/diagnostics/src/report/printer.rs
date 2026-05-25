@@ -56,8 +56,7 @@ pub fn print(report: &Report) {
             eprintln!(
                 "{spaces} ╭─[{}]",
                 style(format!(
-                    "{}:{}:{}-{}:{}",
-                    file_name, start_line, start_col, end_line, end_col
+                    "{file_name}:{start_line}:{start_col}-{end_line}:{end_col}"
                 ))
                 .cyan()
                 .dim(),
@@ -87,7 +86,7 @@ pub fn print(report: &Report) {
                 let content_fragment =
                     style_with_color(&line_code[line_range.clone()], colors[info.index]);
                 let link = format_osc8_link(
-                    &format!("{}:{}:{}", file_name, start_line, start_col),
+                    &format!("{file_name}:{start_line}:{start_col}"),
                     &content_fragment,
                 );
 
@@ -100,7 +99,7 @@ pub fn print(report: &Report) {
             }
 
             if let Some(lbl) = &info.label {
-                let render = ReportRender::parse_report_attr(lbl, &infos);
+                let render = ReportRender::parse_report_attr(lbl, infos);
                 let rendered = format_report_render_items(&render, &colors);
                 let alignment_col = start_col + (end_col.saturating_sub(start_col)) / 2;
 
@@ -114,7 +113,7 @@ pub fn print(report: &Report) {
                                 format!(
                                     "{spaces} ╵{}{}",
                                     " ".repeat(alignment_col),
-                                    format!("╰╴{}", line).with(colors[info.index])
+                                    format!("╰╴{line}").with(colors[info.index])
                                 )
                             } else {
                                 format!("{spaces} ╵{}{}", " ".repeat(alignment_col + 2), line)
@@ -135,6 +134,7 @@ pub fn print(report: &Report) {
 }
 
 fn severity_prefix(severity: Option<&ReportSeverity>) -> String {
+    #[allow(clippy::match_same_arms)]
     let (text, color) = match severity {
         Some(ReportSeverity::Error) => ("Error:", Color::Red),
         Some(ReportSeverity::Warning) => ("Warning:", Color::Yellow),
@@ -151,10 +151,10 @@ pub fn format_report_render_items(render: &ReportRender, colors: &[Color]) -> St
 
     for item in &render.items {
         match item {
-            ReportRenderItem::Text(text) => out.push_str(&text),
+            ReportRenderItem::Text(text) => out.push_str(text),
             ReportRenderItem::Reference { text, span, index } => {
                 let link = format!("{}:{}:{}", span.file_name, span.start_line, span.start_col);
-                let text = style_with_color(&text, colors[*index]);
+                let text = style_with_color(text, colors[*index]);
 
                 out.push_str(&format_osc8_link(&link, &text));
             }
@@ -172,5 +172,5 @@ pub fn style_with_color(text: &str, color: Color) -> String {
 /// Produce an OSC 8 hyperlink wrapper to produce clickable
 /// links in supporting terminals.
 pub fn format_osc8_link(link: &str, content: &str) -> String {
-    format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", link, content)
+    format!("\u{1b}]8;;{link}\u{1b}\\{content}\u{1b}]8;;\u{1b}\\")
 }

@@ -13,7 +13,8 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str, module_id: ModuleId) -> Self {
+    #[must_use]
+    pub const fn new(input: &'a str, module_id: ModuleId) -> Self {
         Self {
             input,
             pos: 0,
@@ -128,9 +129,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn single(&mut self, kind: TokenKind) -> Token {
+    const fn single(&mut self, kind: TokenKind) -> Token {
         let start = self.pos;
         self.pos += 1;
+
         Token::new(kind, start, self.pos, self.module_id)
     }
 
@@ -332,6 +334,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
+#[must_use]
 pub fn tokenize_with_diagnostics(
     input: &str,
     module_id: ModuleId,
@@ -356,10 +359,10 @@ pub fn tokenize_with_diagnostics(
     (tokens, diagnostics)
 }
 
-fn is_ident_start(c: char) -> bool {
+const fn is_ident_start(c: char) -> bool {
     c.is_ascii_alphabetic() || c == '_'
 }
 
-fn is_ident_continue(c: char) -> bool {
+const fn is_ident_continue(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }

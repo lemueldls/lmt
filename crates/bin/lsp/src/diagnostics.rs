@@ -13,10 +13,10 @@ use lsp_types::{
 pub fn to_lsp_diagnostics<DB: HasNamedSourceIngredient, G: ModuleGraph>(
     db: &DB,
     graph: &G,
-    reports: Vec<Report>,
+    reports: &[Report],
 ) -> Vec<LspDiagnostic> {
     reports
-        .into_iter()
+        .iter()
         .map(|report| report_to_lsp_diagnostic(db, graph, report))
         .collect()
 }
@@ -24,16 +24,14 @@ pub fn to_lsp_diagnostics<DB: HasNamedSourceIngredient, G: ModuleGraph>(
 fn report_to_lsp_diagnostic<DB: HasNamedSourceIngredient, G: ModuleGraph>(
     db: &DB,
     graph: &G,
-    report: Report,
+    report: &Report,
 ) -> LspDiagnostic {
     let (text, lines): (String, Vec<String>) = match report.span {
         Span::Known { module_id, .. } => {
             let source = graph.get(module_id);
-            let content = source.content(db).unwrap().to_string();
-            let lines = content
-                .lines()
-                .map(|line| line.to_string())
-                .collect::<Vec<_>>();
+            let content = source.content(db).unwrap();
+            drop(source);
+            let lines = content.lines().map(str::to_owned).collect::<Vec<_>>();
 
             (content, lines)
         }
@@ -129,11 +127,10 @@ fn report_related_information_to_lsp<DB: HasNamedSourceIngredient, G: ModuleGrap
         } => {
             let source = graph.get(module_id);
             let uri = Url::parse(&source.name(db).ok()?.to_string()).ok()?;
-            let content = source.content(db).unwrap().to_string();
-            let lines = content
-                .lines()
-                .map(|line| line.to_string())
-                .collect::<Vec<_>>();
+            let content = source.content(db).unwrap();
+            drop(source);
+
+            let lines = content.lines().map(str::to_owned).collect::<Vec<_>>();
             let range = byte_range_to_lsp_range(&content, start, end, &lines);
 
             Location::new(uri, range)
@@ -155,6 +152,7 @@ fn byte_range_to_lsp_range(text: &str, start: usize, end: usize, lines: &[String
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 /// Convert byte offset to LSP Position (line/character).
 fn byte_to_position(text: &str, offset: usize, lines: &[String]) -> Position {
     let offset = offset.min(text.len());
@@ -176,6 +174,6 @@ fn byte_to_position(text: &str, offset: usize, lines: &[String]) -> Position {
     // Fallback to EOF
     Position {
         line: (lines.len().saturating_sub(1)) as u32,
-        character: lines.last().map(|l| l.len()).unwrap_or(0) as u32,
+        character: lines.last().map_or(0, String::len) as u32,
     }
 }

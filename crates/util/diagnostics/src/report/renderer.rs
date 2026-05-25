@@ -25,7 +25,8 @@ impl ReportRender {
     // Parses `{name}` and `[text](field)` constructs, allowing nested
     // content inside link text. Uses `FieldInfo` to resolve placeholders and
     // produce styled links when a span is available.
-    pub fn parse_report_attr(src: &str, infos: &Vec<FieldInfo>) -> Self {
+    #[must_use]
+    pub fn parse_report_attr(src: &str, infos: &[FieldInfo]) -> Self {
         let mut chars = src.chars().peekable();
         let mut items = Vec::new();
 
@@ -46,19 +47,19 @@ impl ReportRender {
                     ident.push(c);
                 }
 
-                if !ident.is_empty() {
-                    if let Some(info) = infos.iter().find(|i| i.name == ident) {
-                        if let Some(span) = &info.span {
-                            items.push(ReportRenderItem::Reference {
-                                text: span.content[span.start..span.end].to_string(),
-                                span: span.clone(),
-                                index: info.index,
-                            });
-                        } else if let Some(disp) = &info.display {
-                            items.push(ReportRenderItem::Text(disp.clone()));
-                        } else {
-                            items.push(ReportRenderItem::Text(ident.clone()));
-                        }
+                if !ident.is_empty()
+                    && let Some(info) = infos.iter().find(|i| i.name == ident)
+                {
+                    if let Some(span) = &info.span {
+                        items.push(ReportRenderItem::Reference {
+                            text: span.content[span.start..span.end].to_string(),
+                            span: span.clone(),
+                            index: info.index,
+                        });
+                    } else if let Some(disp) = &info.display {
+                        items.push(ReportRenderItem::Text(disp.clone()));
+                    } else {
+                        items.push(ReportRenderItem::Text(ident.clone()));
                     }
                 }
             } else if ch == '[' {
@@ -77,7 +78,7 @@ impl ReportRender {
                     link_text.push(c);
                 }
 
-                if let Some(&'(') = chars.peek() {
+                if chars.peek() == Some(&'(') {
                     // consume '('
                     chars.next();
 

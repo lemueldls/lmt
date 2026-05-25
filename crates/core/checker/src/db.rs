@@ -15,11 +15,14 @@ use crate::types::{Env, Type};
 pub struct CheckerDatabase {}
 
 #[picante::tracked]
-pub async fn infer_expr<DB: CheckerDatabaseTrait>(
+#[allow(clippy::needless_pass_by_value)]
+pub fn infer_expr<DB: CheckerDatabaseTrait>(
     db: &DB,
     env: Env,
     expr: Expr,
 ) -> PicanteResult<Result<Type, Diagnostic>> {
+    let _ = db;
+
     let result = match expr {
         Expr::LiteralInt { .. } => Ok(Type::Int),
         Expr::LiteralReal { .. } => Ok(Type::Real),
@@ -27,11 +30,9 @@ pub async fn infer_expr<DB: CheckerDatabaseTrait>(
         Expr::LiteralString { .. } => Ok(Type::String),
         Expr::Var { name, span } => {
             env.get(&name)
-                .ok_or_else(|| Diagnostic::VariableNotFound { var: span })
+                .ok_or(Diagnostic::VariableNotFound { var: span })
         }
-        Expr::Ascription {
-            left: _, right: _, ..
-        } => {
+        Expr::Ascription { .. } => {
             // Let's assume right is a Type for now
             // We need a function to evaluate Expr to Type
             // Check left against the type
@@ -176,7 +177,7 @@ pub async fn check_program<DB: CheckerDatabaseTrait>(
                     }
                 }
             }
-            _ => {}
+            Statement::Use(..) => todo!(),
         }
     }
 

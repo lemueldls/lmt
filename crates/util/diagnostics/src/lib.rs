@@ -1,4 +1,4 @@
-//! lmt-diagnostics - Diagnostic reporting and module management for LMT
+//! lmt-diagnostics - Diagnostic reporting and module management for LMT.
 
 pub mod graph;
 mod index;

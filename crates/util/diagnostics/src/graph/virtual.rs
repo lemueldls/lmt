@@ -13,7 +13,14 @@ pub struct VirtualGraph {
     pub modules_by_name: HashMap<String, ModuleId>,
 }
 
+impl Default for VirtualGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VirtualGraph {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             files: ModuleMap::new(),
@@ -48,6 +55,7 @@ impl ModuleGraph for VirtualGraph {
                     .data(db)
                     .unwrap(),
             );
+            drop(source);
 
             return module_id;
         }
@@ -65,7 +73,7 @@ impl ModuleGraph for VirtualGraph {
         self.modules_by_name.get(name).copied()
     }
 
-    fn get<'a>(&'a self, module_id: ModuleId) -> MappedRwLockReadGuard<'a, NamedSource> {
+    fn get(&self, module_id: ModuleId) -> MappedRwLockReadGuard<'_, NamedSource> {
         self.files.get(module_id)
     }
 }

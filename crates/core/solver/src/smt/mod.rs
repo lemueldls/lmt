@@ -20,6 +20,7 @@ pub trait SmtSolver {
 #[repr(u8)]
 #[derive(Facet, Debug)]
 #[facet(derive(Error))]
+#[allow(clippy::doc_paragraphs_missing_punctuation)]
 pub enum SolverError {
     /// Solver encountered an error: {0}
     InternalError(String),

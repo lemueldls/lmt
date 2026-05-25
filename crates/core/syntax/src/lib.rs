@@ -1,4 +1,4 @@
-//! Incremental parser/lexer
+//! lmt-syntax - Incremental parser/lexer.
 
 pub mod ast;
 pub mod db;
@@ -32,7 +32,7 @@ mod tests {
         // expect at least one Error expr and later a LiteralInt(2)
         let mut has_error = false;
         let mut has_two = false;
-        for stmt in program.statements.iter() {
+        for stmt in &program.statements {
             if let ast::Statement::Expr(expr) = stmt {
                 match expr {
                     ast::Expr::Error { .. } => has_error = true,
